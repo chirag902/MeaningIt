@@ -24,6 +24,8 @@ const TranslateWithSlangOutputSchema = z.object({
   translation: z.string().describe('The translated text, with slang terms accounted for.'),
   detectedLanguageName: z.string().optional().describe("The full name of the detected source language (e.g., 'French') if auto-detection was used."),
   detectedLanguageCode: z.string().optional().describe("The IETF language tag of the detected source language (e.g., 'fr-FR') if auto-detection was used."),
+  toneAnalysis: z.string().optional().describe("A brief analysis of the emotional tone of the source text (e.g., 'Formal', 'Casual', 'Urgent', 'Frustrated')."),
+  suggestions: z.array(z.string()).optional().describe("Alternative phrasings for the source text to improve the tone, if applicable. Provide up to 3 suggestions."),
 });
 export type TranslateWithSlangOutput = z.infer<typeof TranslateWithSlangOutputSchema>;
 
@@ -35,7 +37,7 @@ const prompt = ai.definePrompt({
   name: 'translateWithSlangPrompt',
   input: {schema: TranslateWithSlangInputSchema},
   output: {schema: TranslateWithSlangOutputSchema},
-  prompt: `You are a multilingual translator who specializes in understanding and translating slang terms and colloquialisms.
+  prompt: `You are a multilingual translator who specializes in understanding and translating slang terms and colloquialisms. You also have expertise in emotional tone analysis.
 
 Your task is to translate a piece of text.
 {{#if (eq sourceLanguage "auto")}}
@@ -45,6 +47,10 @@ The user has specified the source language is {{sourceLanguage}}. You should tru
 {{/if}}
 
 Then, translate the text into {{targetLanguage}}, ensuring that any slang terms or colloquialisms are accurately translated with culturally relevant equivalents. The goal is to make the translation sound natural and understandable to a native speaker of the target language.
+
+After that, analyze the emotional tone of the original source text. Describe it briefly in the 'toneAnalysis' field.
+
+If the tone could be perceived as negative, ambiguous, or could be improved (e.g., made more polite, professional, or clearer), provide up to three alternative phrasings in the 'suggestions' array. If the tone is positive and clear, you can leave the suggestions array empty.
 
 If you are auto-detecting, you must provide the full name and the most appropriate IETF language tag for the detected language in the output.
 

@@ -28,6 +28,8 @@ export async function handleTranslation(data: TranslateWithSlangInput) {
         translation: result.translation,
         detectedLanguageName: result.detectedLanguageName,
         detectedLanguageCode: result.detectedLanguageCode,
+        toneAnalysis: result.toneAnalysis,
+        suggestions: result.suggestions,
     };
   } catch (error) {
     console.error('Translation failed:', error);

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Camera } from 'lucide-react';
+import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Camera, Info, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -23,6 +23,8 @@ export function Translator() {
   const [isTranslating, setIsTranslating] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
   const [audioStream, setAudioStream] = React.useState<MediaStream | null>(null);
+  const [toneAnalysis, setToneAnalysis] = React.useState<string | null>(null);
+  const [toneSuggestions, setToneSuggestions] = React.useState<string[]>([]);
   
   const { toast } = useToast();
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
@@ -32,6 +34,8 @@ export function Translator() {
     if (textToTranslate.trim() === '') {
       setTranslatedText('');
       setDetectedLangName(null);
+      setToneAnalysis(null);
+      setToneSuggestions([]);
       return;
     }
     setIsTranslating(true);
@@ -42,11 +46,9 @@ export function Translator() {
     });
     if (result.success) {
       setTranslatedText(result.translation);
-      if (result.detectedLanguageName) {
-        setDetectedLangName(result.detectedLanguageName);
-      } else {
-        setDetectedLangName(null);
-      }
+      setDetectedLangName(result.detectedLanguageName || null);
+      setToneAnalysis(result.toneAnalysis || null);
+      setToneSuggestions(result.suggestions || []);
     } else {
       toast({
         variant: 'destructive',
@@ -66,6 +68,8 @@ export function Translator() {
     } else {
         setTranslatedText('');
         setDetectedLangName(null);
+        setToneAnalysis(null);
+        setToneSuggestions([]);
     }
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -240,6 +244,42 @@ export function Translator() {
                         )}
                     </div>
                 </div>
+                 {toneAnalysis && (
+                  <Card className="p-3 bg-muted/30 border-dashed">
+                    <CardContent className="p-0">
+                      <div className="flex items-start gap-3">
+                        <Info className="h-5 w-5 mt-0.5 text-primary flex-shrink-0" />
+                        <div>
+                          <p className="font-semibold text-sm">Tone Analysis</p>
+                          <p className="text-sm text-muted-foreground">{toneAnalysis}</p>
+                        </div>
+                      </div>
+                      {toneSuggestions && toneSuggestions.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-dashed">
+                           <div className="flex items-start gap-3">
+                             <Lightbulb className="h-5 w-5 mt-0.5 text-amber-500 flex-shrink-0" />
+                             <div>
+                                <p className="font-semibold text-sm">Suggestions</p>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {toneSuggestions.map((suggestion, index) => (
+                                    <Button
+                                      key={index}
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setSourceText(suggestion)}
+                                      className="text-xs h-auto py-1 px-2 bg-background hover:bg-muted"
+                                    >
+                                      {suggestion}
+                                    </Button>
+                                  ))}
+                                </div>
+                              </div>
+                           </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
             </div>
 
             <div className="flex flex-col gap-4 relative">
