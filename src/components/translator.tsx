@@ -192,14 +192,12 @@ export function Translator() {
           setAudioStream(stream);
           recognitionRef.current.start();
         } catch (error) {
-          console.error('Error enabling voice clarity features:', error);
+          console.error('Microphone access error:', error);
           toast({
             variant: 'destructive',
             title: 'Microphone Error',
-            description: 'Could not enable voice clarity. Please check permissions.',
+            description: 'Could not access the microphone. Please check your browser permissions.',
           });
-          // Fallback to start listening
-          recognitionRef.current.start();
         }
       }
     }

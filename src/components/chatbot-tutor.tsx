@@ -146,7 +146,7 @@ export function ChatbotTutor({ targetLang, onMessageSent, isPrivate }: ChatbotTu
             setAudioStream(stream);
             recognitionRef.current.start();
         } catch (err) {
-            toast({ variant: 'destructive', title: 'Microphone Error', description: 'Could not access the microphone.'});
+            toast({ variant: 'destructive', title: 'Microphone Error', description: 'Could not access the microphone. Please check your browser permissions.'});
         }
     }
   };

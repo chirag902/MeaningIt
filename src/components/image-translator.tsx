@@ -22,35 +22,35 @@ export function ImageTranslator({ targetLang, onTranslateSuccess }: ImageTransla
   const [translatedText, setTranslatedText] = React.useState('');
   const { toast } = useToast();
 
+  const getCameraPermission = React.useCallback(async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast({
+        variant: 'destructive',
+        title: 'Camera Not Supported',
+        description: 'Your browser does not support camera access.',
+      });
+      setHasCameraPermission(false);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setHasCameraPermission(true);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setHasCameraPermission(false);
+      toast({
+        variant: 'destructive',
+        title: 'Camera Access Denied',
+        description: 'Please enable camera permissions in your browser settings to use this feature.',
+      });
+    }
+  }, [toast]);
+
   React.useEffect(() => {
-    const getCameraPermission = async () => {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast({
-          variant: 'destructive',
-          title: 'Camera Not Supported',
-          description: 'Your browser does not support camera access.',
-        });
-        setHasCameraPermission(false);
-        return;
-      }
-
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-        setHasCameraPermission(true);
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions in your browser settings.',
-        });
-      }
-    };
-
     getCameraPermission();
 
     return () => {
@@ -59,7 +59,7 @@ export function ImageTranslator({ targetLang, onTranslateSuccess }: ImageTransla
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [toast]);
+  }, [getCameraPermission]);
 
   const handleCaptureAndTranslate = async () => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -99,13 +99,16 @@ export function ImageTranslator({ targetLang, onTranslateSuccess }: ImageTransla
       <div className="relative w-full max-w-md aspect-video rounded-lg overflow-hidden border bg-muted">
         <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
         {hasCameraPermission === false && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 p-4 text-center">
              <Alert variant="destructive" className="w-auto">
               <AlertTitle>Camera Access Required</AlertTitle>
               <AlertDescription>
                 Please allow camera access to use this feature.
               </AlertDescription>
             </Alert>
+            <Button onClick={getCameraPermission} className="mt-4">
+                Grant Permission
+            </Button>
           </div>
         )}
          {isProcessing && (
