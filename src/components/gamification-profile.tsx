@@ -13,7 +13,7 @@ export function GamificationProfile() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-lg bg-gradient-to-br from-primary/10 to-accent/10">
+      <Card className="shadow-lg border-0 bg-gradient-to-br from-primary/10 to-accent/10 backdrop-blur-sm">
         <CardHeader>
           <div className="flex justify-between items-center">
             <div>
@@ -42,21 +42,21 @@ export function GamificationProfile() {
       </Card>
 
       <div className="grid md:grid-cols-3 gap-4 text-center">
-        <Card>
+        <Card className="bg-card/60 backdrop-blur-sm border-0">
           <CardHeader className="items-center pb-2">
             <Flame className="h-8 w-8 text-destructive" />
             <CardTitle className="text-2xl">{stats.streak}</CardTitle>
             <CardDescription>Day Streak</CardDescription>
           </CardHeader>
         </Card>
-        <Card>
+        <Card className="bg-card/60 backdrop-blur-sm border-0">
           <CardHeader className="items-center pb-2">
             <Languages className="h-8 w-8 text-primary" />
             <CardTitle className="text-2xl">{stats.languagesUsed.size}</CardTitle>
             <CardDescription>Languages Used</CardDescription>
           </CardHeader>
         </Card>
-        <Card>
+        <Card className="bg-card/60 backdrop-blur-sm border-0">
           <CardHeader className="items-center pb-2">
             <Star className="h-8 w-8 text-amber-500" />
             <CardTitle className="text-2xl">{unlockedBadges.length}/{unlockedBadges.length + lockedBadges.length}</CardTitle>
@@ -65,7 +65,7 @@ export function GamificationProfile() {
         </Card>
       </div>
       
-      <Card>
+      <Card className="bg-card/60 backdrop-blur-sm border-0">
           <CardHeader>
               <CardTitle>Badge Collection</CardTitle>
               <CardDescription>Flex your achievements!</CardDescription>

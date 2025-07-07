@@ -8,8 +8,8 @@ export default function Home() {
         <ThemeToggle />
       </div>
       <div className="text-center mb-8">
-        <h1 className="text-4xl sm:text-5xl font-bold text-primary font-headline">MeaningIt</h1>
-        <p className="text-muted-foreground mt-2 text-lg">
+        <h1 className="text-4xl sm:text-6xl font-black text-primary font-display tracking-tight">MeaningIt</h1>
+        <p className="text-muted-foreground mt-4 text-lg max-w-xl mx-auto">
           Instant, intelligent, and stylish translations.
         </p>
       </div>

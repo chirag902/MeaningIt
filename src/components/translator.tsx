@@ -225,8 +225,8 @@ export function Translator() {
   };
 
   return (
-    <Card className="w-full max-w-4xl shadow-2xl bg-card/80 backdrop-blur-sm">
-      <CardHeader className="border-b">
+    <Card className="w-full max-w-4xl border-0 shadow-2xl bg-card/60 backdrop-blur-xl">
+      <CardHeader className="border-b p-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <Select value={sourceLang} onValueChange={(value) => { setSourceLang(value); setDetectedLangName(null); }}>
             <SelectTrigger className="w-full sm:w-[200px]">
@@ -259,14 +259,14 @@ export function Translator() {
           </Select>
         </div>
       </CardHeader>
-      <CardContent className="p-0 sm:p-6">
+      <CardContent className="p-0">
        <Tabs defaultValue="text" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-transparent p-0 m-0 rounded-none border-b">
-            <TabsTrigger value="text" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Text</TabsTrigger>
-            <TabsTrigger value="image" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Image</TabsTrigger>
-            <TabsTrigger value="live" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Live</TabsTrigger>
-            <TabsTrigger value="tutor" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Tutor</TabsTrigger>
-            <TabsTrigger value="profile" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Profile</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 h-auto p-1 mx-auto max-w-lg mt-4 rounded-xl bg-muted/60">
+            <TabsTrigger value="text">Text</TabsTrigger>
+            <TabsTrigger value="image">Image</TabsTrigger>
+            <TabsTrigger value="live">Live</TabsTrigger>
+            <TabsTrigger value="tutor">Tutor</TabsTrigger>
+            <TabsTrigger value="profile">Profile</TabsTrigger>
         </TabsList>
         <TabsContent value="text" className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -275,7 +275,7 @@ export function Translator() {
                 placeholder={isPrivateMode ? "Private mode is on. History is not saved." : "Enter text to translate..."}
                 value={sourceText}
                 onChange={(e) => setSourceText(e.target.value)}
-                className="h-48 resize-none text-base"
+                className="h-48 resize-none text-base bg-transparent"
                 />
                 <div className="flex items-center justify-between h-10">
                     <div className="flex items-center gap-4">

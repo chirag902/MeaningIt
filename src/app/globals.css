@@ -4,48 +4,48 @@
 
 @layer base {
   :root {
-    --background: 220 17% 95%; /* #F0F2F5 */
+    --background: 220 20% 98%;
     --foreground: 224 7.1% 4.1%;
     --card: 0 0% 100%;
     --card-foreground: 224 7.1% 4.1%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 7.1% 4.1%;
-    --primary: 231 48% 48%; /* #3F51B5 */
+    --primary: 248 81% 59%; /* New vibrant blue/purple */
     --primary-foreground: 0 0% 98%;
     --secondary: 220 14.3% 95.9%;
     --secondary-foreground: 222.2 84% 4.9%;
     --muted: 220 14.3% 95.9%;
     --muted-foreground: 220 8.9% 46.1%;
-    --accent: 187 100% 42%; /* #00BCD4 */
+    --accent: 174 100% 42%; /* New vibrant teal */
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 231 48% 48%;
-    --radius: 0.5rem;
+    --ring: 248 81% 59%;
+    --radius: 0.75rem; /* Slightly more rounded corners */
   }
 
   .dark {
-    --background: 220 13% 10%;
+    --background: 240 10% 4%; /* New dark blue */
     --foreground: 0 0% 98%;
-    --card: 220 13% 14%;
+    --card: 240 10% 8%;
     --card-foreground: 0 0% 98%;
-    --popover: 220 13% 10%;
+    --popover: 240 10% 4%;
     --popover-foreground: 0 0% 98%;
-    --primary: 231 48% 68%;
-    --primary-foreground: 231 48% 18%;
+    --primary: 248 81% 70%;
+    --primary-foreground: 248 81% 10%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 0 0% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 187 100% 52%;
-    --accent-foreground: 187 100% 12%;
+    --accent: 174 100% 60%;
+    --accent-foreground: 174 100% 12%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 231 48% 68%;
+    --ring: 248 81% 70%;
   }
 }
 
@@ -55,9 +55,13 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-image: radial-gradient(circle at top right, hsl(var(--primary) / 0.1), transparent),
-                      radial-gradient(circle at bottom left, hsl(var(--accent) / 0.1), transparent);
+    background-image: radial-gradient(ellipse 80% 80% at 120% -20%, hsl(var(--primary) / 0.15), transparent),
+                      radial-gradient(ellipse 80% 80% at -20% 120%, hsl(var(--accent) / 0.15), transparent);
     background-attachment: fixed;
+  }
+  .dark body {
+     background-image: radial-gradient(ellipse 80% 80% at 120% -20%, hsl(var(--primary) / 0.2), transparent),
+                      radial-gradient(ellipse 80% 80% at -20% 120%, hsl(var(--accent) / 0.2), transparent);
   }
 }
 
