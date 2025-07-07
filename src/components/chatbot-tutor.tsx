@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 interface ChatbotTutorProps {
   targetLang: string;
   onMessageSent: () => void;
+  isPrivate: boolean;
 }
 
 type ConversationTurn = {
@@ -23,7 +24,7 @@ type ConversationTurn = {
   text: string;
 };
 
-export function ChatbotTutor({ targetLang, onMessageSent }: ChatbotTutorProps) {
+export function ChatbotTutor({ targetLang, onMessageSent, isPrivate }: ChatbotTutorProps) {
   const { toast } = useToast();
   const getLangName = (code: string) => languages.find(l => l.code === code)?.name || code;
   
@@ -49,6 +50,13 @@ export function ChatbotTutor({ targetLang, onMessageSent }: ChatbotTutorProps) {
     const startConversation = async () => {
       setIsLoading(true);
       const targetLanguageName = getLangName(targetLang);
+      // Don't send a real prompt if in private mode, just set a default message.
+      if (isPrivate) {
+        setConversation([{ role: 'model', text: `Private session started in ${targetLanguageName}. History will not be saved.` }]);
+        setIsLoading(false);
+        return;
+      }
+      
       const result = await handleChatbot({
         userInput: `Hi, please introduce yourself as my ${targetLanguageName} tutor.`,
         targetLanguage: targetLanguageName,
@@ -68,7 +76,7 @@ export function ChatbotTutor({ targetLang, onMessageSent }: ChatbotTutorProps) {
     };
     startConversation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetLang]);
+  }, [targetLang, isPrivate]);
 
   React.useEffect(() => {
     scrollAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -112,7 +120,7 @@ export function ChatbotTutor({ targetLang, onMessageSent }: ChatbotTutorProps) {
     const result = await handleChatbot({
       userInput: text,
       targetLanguage: getLangName(targetLang),
-      history: conversation,
+      history: isPrivate ? [] : conversation,
     });
 
     if (result.success && result.response) {
@@ -212,7 +220,7 @@ export function ChatbotTutor({ targetLang, onMessageSent }: ChatbotTutorProps) {
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={`Practice your ${getLangName(targetLang)}...`}
+            placeholder={isPrivate ? `Private chat in ${getLangName(targetLang)}...` : `Practice your ${getLangName(targetLang)}...`}
             className="h-12 resize-none"
             onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {

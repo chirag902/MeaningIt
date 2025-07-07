@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Info, Lightbulb, Zap, User as ProfileIcon } from 'lucide-react';
+import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Info, Lightbulb, Zap, User as ProfileIcon, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,6 +34,7 @@ export function Translator() {
   const [toneSuggestions, setToneSuggestions] = React.useState<string[]>([]);
   const [selectedVoice, setSelectedVoice] = React.useState<string | undefined>(undefined);
   const [isSpeedBoosted, setIsSpeedBoosted] = React.useState(false);
+  const [isPrivateMode, setIsPrivateMode] = React.useState(false);
 
   const { toast } = useToast();
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
@@ -51,6 +52,21 @@ export function Translator() {
     // Reset voice selection when target language changes
     setSelectedVoice(availableVoices?.[0]?.id);
   }, [targetLang, availableVoices]);
+  
+  React.useEffect(() => {
+    if (isPrivateMode) {
+      toast({
+        title: 'Private Mode Enabled',
+        description: 'Translation history and activity will not be saved.',
+      });
+    }
+    // Clear inputs when mode changes
+    setSourceText('');
+    setTranslatedText('');
+    setDetectedLangName(null);
+    setToneAnalysis(null);
+    setToneSuggestions([]);
+  }, [isPrivateMode, toast]);
 
   const performTranslation = React.useCallback(async (textToTranslate: string) => {
     if (textToTranslate.trim() === '') {
@@ -72,7 +88,9 @@ export function Translator() {
       setDetectedLangName(result.detectedLanguageName || null);
       setToneAnalysis(result.toneAnalysis || null);
       setToneSuggestions(result.suggestions || []);
-      logTextTranslation(targetLang);
+      if (!isPrivateMode) {
+        logTextTranslation(targetLang);
+      }
     } else {
       toast({
         variant: 'destructive',
@@ -81,7 +99,7 @@ export function Translator() {
       });
     }
     setIsTranslating(false);
-  }, [sourceLang, targetLang, toast, isSpeedBoosted, logTextTranslation]);
+  }, [sourceLang, targetLang, toast, isSpeedBoosted, logTextTranslation, isPrivateMode]);
 
   React.useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -254,7 +272,7 @@ export function Translator() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="flex flex-col gap-4">
                 <Textarea
-                placeholder="Enter text to translate..."
+                placeholder={isPrivateMode ? "Private mode is on. History is not saved." : "Enter text to translate..."}
                 value={sourceText}
                 onChange={(e) => setSourceText(e.target.value)}
                 className="h-48 resize-none text-base"
@@ -274,12 +292,21 @@ export function Translator() {
                             )
                         )}
                     </div>
-                     <div className="flex items-center space-x-2">
-                        <Switch id="speed-boost" checked={isSpeedBoosted} onCheckedChange={setIsSpeedBoosted} />
-                        <Label htmlFor="speed-boost" className="flex items-center gap-1.5 cursor-pointer">
-                            <Zap className="h-4 w-4 text-amber-500"/>
-                            <span className="text-sm font-medium">Speed Boost</span>
-                        </Label>
+                     <div className="flex items-center gap-x-6">
+                        <div className="flex items-center space-x-2">
+                           <Switch id="private-mode" checked={isPrivateMode} onCheckedChange={setIsPrivateMode} />
+                           <Label htmlFor="private-mode" className="flex items-center gap-1.5 cursor-pointer">
+                               <Shield className="h-4 w-4 text-primary"/>
+                               <span className="text-sm font-medium">Private</span>
+                           </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <Switch id="speed-boost" checked={isSpeedBoosted} onCheckedChange={setIsSpeedBoosted} />
+                            <Label htmlFor="speed-boost" className="flex items-center gap-1.5 cursor-pointer">
+                                <Zap className="h-4 w-4 text-amber-500"/>
+                                <span className="text-sm font-medium">Boost</span>
+                            </Label>
+                        </div>
                     </div>
                 </div>
                  {!isSpeedBoosted && toneAnalysis && (
@@ -356,13 +383,21 @@ export function Translator() {
             </div>
         </TabsContent>
         <TabsContent value="image" className="p-6">
-            <ImageTranslator targetLang={targetLang} onTranslateSuccess={logImageTranslation} />
+            <ImageTranslator targetLang={targetLang} onTranslateSuccess={() => {
+                if (!isPrivateMode) logImageTranslation();
+            }} />
         </TabsContent>
         <TabsContent value="live" className="p-6">
             <LiveTranslator lang1={sourceLang} lang2={targetLang} />
         </TabsContent>
         <TabsContent value="tutor" className="p-6">
-            <ChatbotTutor targetLang={targetLang} onMessageSent={logTutorMessage} />
+            <ChatbotTutor 
+              targetLang={targetLang} 
+              onMessageSent={() => {
+                if (!isPrivateMode) logTutorMessage();
+              }}
+              isPrivate={isPrivateMode}
+            />
         </TabsContent>
         <TabsContent value="profile" className="p-6">
             <GamificationProfile />
