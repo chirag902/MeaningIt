@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { badges, type Badge } from '@/lib/badges';
 import { useToast } from './use-toast';
 
@@ -50,17 +50,20 @@ const getInitialStats = (): GamificationStats => ({
 export const useGamification = () => {
   const [stats, setStats] = useState<GamificationStats>(getInitialStats());
   const { toast } = useToast();
+  const prevStatsRef = useRef<GamificationStats>();
 
   useEffect(() => {
     try {
       const savedStatsRaw = localStorage.getItem('gamificationStats');
       if (savedStatsRaw) {
         const savedStats = JSON.parse(savedStatsRaw);
-        setStats({
+        const newStats = {
           ...getInitialStats(),
           ...savedStats,
           languagesUsed: new Set(savedStats.languagesUsed || []),
-        });
+        };
+        setStats(newStats);
+        prevStatsRef.current = newStats; // Initialize prevStats
       }
     } catch (error) {
       console.error("Failed to load gamification stats from localStorage", error);
@@ -69,35 +72,67 @@ export const useGamification = () => {
   
   const checkStreak = useCallback(() => {
     setStats(prevStats => {
-      const today = new Date();
-      const lastUsed = prevStats.lastUsedDate ? new Date(prevStats.lastUsedDate) : null;
-      let newStreak = prevStats.streak;
-      let newXp = prevStats.xp;
+        const today = new Date();
+        const lastUsed = prevStats.lastUsedDate ? new Date(prevStats.lastUsedDate) : null;
 
-      if (lastUsed) {
-        if (!isSameDay(today, lastUsed)) {
-          if (isYesterday(today, lastUsed)) {
+        if (lastUsed && isSameDay(today, lastUsed)) {
+            return prevStats; // No change if already used today
+        }
+
+        let newStreak = prevStats.streak;
+        let newXp = prevStats.xp;
+
+        if (lastUsed && isYesterday(today, lastUsed)) {
             newStreak++;
             newXp += XP_FOR_STREAK;
-            toast({ title: 'Streak Continued!', description: `You're on a ${newStreak}-day streak! +${XP_FOR_STREAK} XP` });
-          } else {
-            newStreak = 1; // Reset streak if they missed a day
-          }
+        } else {
+            newStreak = 1; // Reset or first time
         }
-        // If it's the same day, do nothing.
-      } else {
-        newStreak = 1; // First time using the app
-      }
-      
-      return { ...prevStats, streak: newStreak, xp: newXp, lastUsedDate: today.toISOString() };
+        
+        return { ...prevStats, streak: newStreak, xp: newXp, lastUsedDate: today.toISOString() };
     });
-  }, [toast]);
-  
-  useEffect(() => {
-    // We only want to check the streak once on initial load.
-    checkStreak();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  
+  // This effect runs on load to check the streak
+  useEffect(() => {
+    checkStreak();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only on mount
+
+  // This effect handles firing toasts AFTER state has been updated
+  useEffect(() => {
+    const prevStats = prevStatsRef.current;
+    if (!prevStats) {
+        prevStatsRef.current = stats;
+        return;
+    }
+    
+    // Check for streak toasts
+    if (stats.streak > prevStats.streak && stats.streak > 1) {
+        toast({ title: 'Streak Continued!', description: `You're on a ${stats.streak}-day streak! +${XP_FOR_STREAK} XP` });
+    }
+
+    // Check for badge toasts
+    if (stats.unlockedBadgeIds.length > prevStats.unlockedBadgeIds.length) {
+        const newBadgeIds = stats.unlockedBadgeIds.filter(id => !prevStats.unlockedBadgeIds.includes(id));
+        const newBadges = badges.filter(b => newBadgeIds.includes(b.id));
+
+        newBadges.forEach(badge => {
+            const BadgeIcon = badge.icon;
+            toast({
+                title: 'Badge Unlocked!',
+                description: React.createElement(
+                    'div', { className: "flex items-center gap-2" },
+                    React.createElement(BadgeIcon, { className: "h-5 w-5 text-amber-500" }),
+                    React.createElement('span', { className: "font-semibold" }, badge.name)
+                )
+            });
+        });
+    }
+
+    // Update ref for next render
+    prevStatsRef.current = stats;
+  }, [stats, toast]);
 
 
   useEffect(() => {
@@ -112,31 +147,11 @@ export const useGamification = () => {
     }
   }, [stats]);
 
-  const checkForNewBadges = useCallback((currentStats: GamificationStats) => {
-    const newlyUnlocked: Badge[] = [];
-    badges.forEach(badge => {
-      if (!currentStats.unlockedBadgeIds.includes(badge.id) && badge.isUnlocked(currentStats)) {
-        newlyUnlocked.push(badge);
-      }
-    });
-
-    if (newlyUnlocked.length > 0) {
-      newlyUnlocked.forEach(badge => {
-          const BadgeIcon = badge.icon;
-          toast({
-              title: 'Badge Unlocked!',
-              description: React.createElement(
-                  'div',
-                  { className: "flex items-center gap-2" },
-                  React.createElement(BadgeIcon, { className: "h-5 w-5 text-amber-500" }),
-                  React.createElement('span', { className: "font-semibold" }, badge.name)
-              )
-          });
-      });
-      return newlyUnlocked.map(b => b.id);
-    }
-    return [];
-  }, [toast]);
+  const checkForNewBadges = useCallback((currentStats: GamificationStats): Badge[] => {
+    return badges.filter(badge => 
+        !currentStats.unlockedBadgeIds.includes(badge.id) && badge.isUnlocked(currentStats)
+    );
+  }, []);
   
   const updateStats = useCallback((updateFn: (prevStats: GamificationStats) => Partial<GamificationStats>, xpGained: number) => {
     setStats(prevStats => {
@@ -144,10 +159,11 @@ export const useGamification = () => {
         const xp = prevStats.xp + xpGained;
         const level = Math.floor(xp / XP_PER_LEVEL) + 1;
         
-        const newStats: GamificationStats = { ...prevStats, ...updates, xp, level };
+        let newStats: GamificationStats = { ...prevStats, ...updates, xp, level };
         
-        const newBadgeIds = checkForNewBadges(newStats);
-        if (newBadgeIds.length > 0) {
+        const newBadges = checkForNewBadges(newStats);
+        if (newBadges.length > 0) {
+            const newBadgeIds = newBadges.map(b => b.id);
             newStats.unlockedBadgeIds = [...newStats.unlockedBadgeIds, ...newBadgeIds];
         }
 
