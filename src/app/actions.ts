@@ -23,7 +23,12 @@ export async function handleTranslation(data: TranslateWithSlangInput) {
 
   try {
     const result = await translateWithSlang(validation.data);
-    return { success: true, translation: result.translation };
+    return { 
+        success: true, 
+        translation: result.translation,
+        detectedLanguageName: result.detectedLanguageName,
+        detectedLanguageCode: result.detectedLanguageCode,
+    };
   } catch (error) {
     console.error('Translation failed:', error);
     return { success: false, error: 'Failed to translate. Please try again later.' };

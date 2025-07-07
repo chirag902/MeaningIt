@@ -15,10 +15,11 @@ import { ImageTranslator } from './image-translator';
 import { LiveTranslator } from './live-translator';
 
 export function Translator() {
-  const [sourceLang, setSourceLang] = React.useState('en-US');
+  const [sourceLang, setSourceLang] = React.useState('auto');
   const [targetLang, setTargetLang] = React.useState('es-ES');
   const [sourceText, setSourceText] = React.useState('');
   const [translatedText, setTranslatedText] = React.useState('');
+  const [detectedLangName, setDetectedLangName] = React.useState<string | null>(null);
   const [isTranslating, setIsTranslating] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
   
@@ -29,16 +30,22 @@ export function Translator() {
   const performTranslation = React.useCallback(async (textToTranslate: string) => {
     if (textToTranslate.trim() === '') {
       setTranslatedText('');
+      setDetectedLangName(null);
       return;
     }
     setIsTranslating(true);
     const result = await handleTranslation({
       text: textToTranslate,
-      sourceLanguage: languages.find(l => l.code === sourceLang)?.name || 'English',
+      sourceLanguage: sourceLang === 'auto' ? 'auto' : languages.find(l => l.code === sourceLang)?.name || 'English',
       targetLanguage: languages.find(l => l.code === targetLang)?.name || 'Spanish',
     });
     if (result.success) {
       setTranslatedText(result.translation);
+      if (result.detectedLanguageName) {
+        setDetectedLangName(result.detectedLanguageName);
+      } else {
+        setDetectedLangName(null);
+      }
     } else {
       toast({
         variant: 'destructive',
@@ -57,6 +64,7 @@ export function Translator() {
         }, 500);
     } else {
         setTranslatedText('');
+        setDetectedLangName(null);
     }
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -69,7 +77,7 @@ export function Translator() {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = sourceLang;
+      recognition.lang = sourceLang === 'auto' ? 'en-US' : sourceLang; // Default recognition lang if auto
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => setIsListening(false);
       recognition.onresult = (event) => {
@@ -91,6 +99,10 @@ export function Translator() {
   }, [sourceLang, toast]);
 
   const handleSwapLanguages = () => {
+    if (sourceLang === 'auto') {
+        toast({ title: "Can't swap from Auto-detect", description: "Please select a specific language to swap." });
+        return;
+    }
     setSourceLang(targetLang);
     setTargetLang(sourceLang);
     setSourceText(translatedText);
@@ -129,7 +141,7 @@ export function Translator() {
     <Card className="w-full max-w-4xl shadow-2xl bg-card/80 backdrop-blur-sm">
       <CardHeader className="border-b">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <Select value={sourceLang} onValueChange={setSourceLang}>
+          <Select value={sourceLang} onValueChange={(value) => { setSourceLang(value); setDetectedLangName(null); }}>
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Source Language" />
             </SelectTrigger>
@@ -142,7 +154,7 @@ export function Translator() {
             </SelectContent>
           </Select>
 
-          <Button variant="ghost" size="icon" onClick={handleSwapLanguages} className="flex-shrink-0">
+          <Button variant="ghost" size="icon" onClick={handleSwapLanguages} className="flex-shrink-0" disabled={sourceLang === 'auto'}>
             <ArrowRightLeft className="h-5 w-5 text-muted-foreground" />
           </Button>
 
@@ -152,7 +164,7 @@ export function Translator() {
             </SelectTrigger>
             <SelectContent>
               {languages.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code}>
+                 lang.code !== 'auto' && <SelectItem key={lang.code} value={lang.code}>
                   {lang.name}
                 </SelectItem>
               ))}
@@ -176,11 +188,21 @@ export function Translator() {
                 onChange={(e) => setSourceText(e.target.value)}
                 className="h-48 resize-none text-base"
                 />
-                <div className="flex items-center justify-between">
-                <Button onClick={handleListen} variant="outline" size="icon" disabled={!recognitionRef.current}>
-                    <Mic className={`h-5 w-5 ${isListening ? 'text-destructive' : ''}`} />
-                </Button>
-                {isListening && <VoiceVisualizer />}
+                <div className="flex items-center justify-between h-10">
+                    <div className="flex items-center gap-4">
+                        <Button onClick={handleListen} variant="outline" size="icon" disabled={!recognitionRef.current}>
+                            <Mic className={`h-5 w-5 ${isListening ? 'text-destructive' : ''}`} />
+                        </Button>
+                        {isListening ? (
+                            <VoiceVisualizer />
+                        ) : (
+                            sourceLang === 'auto' && detectedLangName && (
+                                <div className="text-sm text-muted-foreground">
+                                    Detected: <span className="font-medium text-foreground">{detectedLangName}</span>
+                                </div>
+                            )
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -191,7 +213,7 @@ export function Translator() {
                 readOnly
                 className="h-48 resize-none bg-muted/50 text-base"
                 />
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 h-10">
                 <Button onClick={handleCopyToClipboard} variant="outline" size="icon" disabled={!translatedText}>
                     <Copy className="h-5 w-5" />
                 </Button>

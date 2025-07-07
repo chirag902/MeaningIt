@@ -15,13 +15,15 @@ import {z} from 'genkit';
 
 const TranslateWithSlangInputSchema = z.object({
   text: z.string().describe('The text to translate.'),
-  sourceLanguage: z.string().describe('The language of the text to translate.'),
+  sourceLanguage: z.string().describe("The language of the text to translate. Can be 'auto' for auto-detection."),
   targetLanguage: z.string().describe('The language to translate the text into.'),
 });
 export type TranslateWithSlangInput = z.infer<typeof TranslateWithSlangInputSchema>;
 
 const TranslateWithSlangOutputSchema = z.object({
   translation: z.string().describe('The translated text, with slang terms accounted for.'),
+  detectedLanguageName: z.string().optional().describe("The full name of the detected source language (e.g., 'French') if auto-detection was used."),
+  detectedLanguageCode: z.string().optional().describe("The IETF language tag of the detected source language (e.g., 'fr-FR') if auto-detection was used."),
 });
 export type TranslateWithSlangOutput = z.infer<typeof TranslateWithSlangOutputSchema>;
 
@@ -35,9 +37,18 @@ const prompt = ai.definePrompt({
   output: {schema: TranslateWithSlangOutputSchema},
   prompt: `You are a multilingual translator who specializes in understanding and translating slang terms and colloquialisms.
 
-  Translate the following text from {{sourceLanguage}} to {{targetLanguage}}, ensuring that any slang terms or colloquialisms are accurately translated with culturally relevant equivalents in the target language. The goal is to make the translation sound natural and understandable to a native speaker of the target language.
+Your task is to translate a piece of text.
+{{#if (eq sourceLanguage "auto")}}
+You must first accurately detect the source language of the text.
+{{else}}
+The user has specified the source language is {{sourceLanguage}}. You should trust this and proceed with translation.
+{{/if}}
 
-  Text: {{{text}}}`,
+Then, translate the text into {{targetLanguage}}, ensuring that any slang terms or colloquialisms are accurately translated with culturally relevant equivalents. The goal is to make the translation sound natural and understandable to a native speaker of the target language.
+
+If you are auto-detecting, you must provide the full name and the most appropriate IETF language tag for the detected language in the output.
+
+Text: {{{text}}}`,
 });
 
 const translateWithSlangFlow = ai.defineFlow(
