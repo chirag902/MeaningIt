@@ -10,6 +10,7 @@ const TranslateSchema = z.object({
   text: z.string(),
   sourceLanguage: z.string(),
   targetLanguage: z.string(),
+  isSpeedBoosted: z.boolean().optional(),
 });
 
 export async function handleTranslation(data: TranslateWithSlangInput) {

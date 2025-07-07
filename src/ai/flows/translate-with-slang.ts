@@ -17,6 +17,7 @@ const TranslateWithSlangInputSchema = z.object({
   text: z.string().describe('The text to translate.'),
   sourceLanguage: z.string().describe("The language of the text to translate. Can be 'auto' for auto-detection."),
   targetLanguage: z.string().describe('The language to translate the text into.'),
+  isSpeedBoosted: z.boolean().optional().describe('If true, performs a faster translation by skipping tone analysis and suggestions.'),
 });
 export type TranslateWithSlangInput = z.infer<typeof TranslateWithSlangInputSchema>;
 
@@ -37,7 +38,7 @@ const prompt = ai.definePrompt({
   name: 'translateWithSlangPrompt',
   input: {schema: TranslateWithSlangInputSchema},
   output: {schema: TranslateWithSlangOutputSchema},
-  prompt: `You are a multilingual translator who specializes in understanding and translating slang terms and colloquialisms. You also have expertise in emotional tone analysis.
+  prompt: `You are a multilingual translator who specializes in understanding and translating slang terms and colloquialisms.{{#unless isSpeedBoosted}} You also have expertise in emotional tone analysis.{{/unless}}
 
 Your task is to translate a piece of text.
 {{#if (eq sourceLanguage "auto")}}
@@ -48,9 +49,11 @@ The user has specified the source language is {{sourceLanguage}}. You should tru
 
 Then, translate the text into {{targetLanguage}}, ensuring that any slang terms or colloquialisms are accurately translated with culturally relevant equivalents. The goal is to make the translation sound natural and understandable to a native speaker of the target language.
 
+{{#unless isSpeedBoosted}}
 After that, analyze the emotional tone of the original source text. Describe it briefly in the 'toneAnalysis' field.
 
 If the tone could be perceived as negative, ambiguous, or could be improved (e.g., made more polite, professional, or clearer), provide up to three alternative phrasings in the 'suggestions' array. If the tone is positive and clear, you can leave the suggestions array empty.
+{{/unless}}
 
 If you are auto-detecting, you must provide the full name and the most appropriate IETF language tag for the detected language in the output.
 

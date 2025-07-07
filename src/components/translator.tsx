@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Info, Lightbulb } from 'lucide-react';
+import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Info, Lightbulb, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +15,8 @@ import { ImageTranslator } from './image-translator';
 import { LiveTranslator } from './live-translator';
 import { ChatbotTutor } from './chatbot-tutor';
 import { voicePacks } from '@/lib/voices';
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export function Translator() {
   const [sourceLang, setSourceLang] = React.useState('auto');
@@ -29,6 +31,7 @@ export function Translator() {
   const [toneAnalysis, setToneAnalysis] = React.useState<string | null>(null);
   const [toneSuggestions, setToneSuggestions] = React.useState<string[]>([]);
   const [selectedVoice, setSelectedVoice] = React.useState<string | undefined>(undefined);
+  const [isSpeedBoosted, setIsSpeedBoosted] = React.useState(false);
 
   const { toast } = useToast();
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
@@ -58,6 +61,7 @@ export function Translator() {
       text: textToTranslate,
       sourceLanguage: sourceLang === 'auto' ? 'auto' : languages.find(l => l.code === sourceLang)?.name || 'English',
       targetLanguage: languages.find(l => l.code === targetLang)?.name || 'Spanish',
+      isSpeedBoosted: isSpeedBoosted,
     });
     if (result.success) {
       setTranslatedText(result.translation);
@@ -72,7 +76,7 @@ export function Translator() {
       });
     }
     setIsTranslating(false);
-  }, [sourceLang, targetLang, toast]);
+  }, [sourceLang, targetLang, toast, isSpeedBoosted]);
 
   React.useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -264,8 +268,15 @@ export function Translator() {
                             )
                         )}
                     </div>
+                     <div className="flex items-center space-x-2">
+                        <Switch id="speed-boost" checked={isSpeedBoosted} onCheckedChange={setIsSpeedBoosted} />
+                        <Label htmlFor="speed-boost" className="flex items-center gap-1.5 cursor-pointer">
+                            <Zap className="h-4 w-4 text-amber-500"/>
+                            <span className="text-sm font-medium">Speed Boost</span>
+                        </Label>
+                    </div>
                 </div>
-                 {toneAnalysis && (
+                 {!isSpeedBoosted && toneAnalysis && (
                   <Card className="p-3 bg-muted/30 border-dashed">
                     <CardContent className="p-0">
                       <div className="flex items-start gap-3">
