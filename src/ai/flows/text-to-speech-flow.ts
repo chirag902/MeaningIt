@@ -11,7 +11,6 @@ import {ai} from '@/ai/genkit';
 import {googleAI} from '@genkit-ai/googleai';
 import {z} from 'genkit';
 import wav from 'wav';
-import { voicePacks } from '@/lib/voices';
 
 const TextToSpeechInputSchema = z.object({
   text: z.string().describe('The text to convert to speech.'),
@@ -29,18 +28,6 @@ export async function textToSpeech(input: TextToSpeechInput): Promise<TextToSpee
   return textToSpeechFlow(input);
 }
 
-// A fallback to get a default voice if no specific one is requested.
-const getDefaultVoiceForLang = (lang: string): string | undefined => {
-    const langCode = lang.split('-')[0];
-    const availableVoices = voicePacks[lang as keyof typeof voicePacks] || voicePacks[langCode as keyof typeof voicePacks];
-    
-    if (availableVoices && availableVoices.length > 0) {
-        return availableVoices[0].id;
-    }
-    // Return undefined to let the model auto-select
-    return undefined;
-}
-
 const textToSpeechFlow = ai.defineFlow(
   {
     name: 'textToSpeechFlow',
@@ -48,16 +35,16 @@ const textToSpeechFlow = ai.defineFlow(
     outputSchema: TextToSpeechOutputSchema,
   },
   async ({text, lang, voiceName}) => {
-    const selectedVoice = voiceName || getDefaultVoiceForLang(lang);
-
     const generateConfig: any = {
       responseModalities: ['AUDIO'],
     };
 
-    if (selectedVoice) {
+    // Only add speechConfig if a specific voice has been selected on the client.
+    // Otherwise, let the model auto-detect the language and choose a default voice.
+    if (voiceName) {
       generateConfig.speechConfig = {
         voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: selectedVoice },
+          prebuiltVoiceConfig: { voiceName: voiceName },
         },
       };
     }
@@ -67,14 +54,17 @@ const textToSpeechFlow = ai.defineFlow(
       config: generateConfig,
       prompt: text,
     });
+
     if (!media) {
       throw new Error('No media returned from TTS model.');
     }
+    
     const audioBuffer = Buffer.from(
       media.url.substring(media.url.indexOf(',') + 1),
       'base64'
     );
     const wavBase64 = await toWav(audioBuffer);
+    
     return {
       audioDataUri: 'data:audio/wav;base64,' + wavBase64,
     };
