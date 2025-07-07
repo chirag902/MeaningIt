@@ -35,23 +35,26 @@ const textToSpeechFlow = ai.defineFlow(
     outputSchema: TextToSpeechOutputSchema,
   },
   async ({text, lang, voiceName}) => {
-    const generateConfig: any = {
-      responseModalities: ['AUDIO'],
+    // Construct the speechConfig object.
+    // It's crucial to provide the languageCode to guide the model robustly.
+    const speechConfig: any = {
+      languageCode: lang,
     };
 
-    // Only add speechConfig if a specific voice has been selected on the client.
-    // Otherwise, let the model auto-detect the language and choose a default voice.
+    // If a specific voice is chosen by the user, add it to the config.
+    // The languageCode is still provided to ensure correctness.
     if (voiceName) {
-      generateConfig.speechConfig = {
-        voiceConfig: {
-          prebuiltVoiceConfig: { voiceName: voiceName },
-        },
+      speechConfig.voiceConfig = {
+        prebuiltVoiceConfig: { voiceName: voiceName },
       };
     }
 
     const {media} = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
-      config: generateConfig,
+      config: {
+        responseModalities: ['AUDIO'],
+        speechConfig: speechConfig,
+      },
       prompt: text,
     });
 
