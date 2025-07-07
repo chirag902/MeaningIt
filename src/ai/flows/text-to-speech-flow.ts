@@ -35,18 +35,14 @@ const textToSpeechFlow = ai.defineFlow(
     outputSchema: TextToSpeechOutputSchema,
   },
   async ({text, lang, voiceName}) => {
-    // Construct the speechConfig object.
-    // It's crucial to provide the languageCode to guide the model robustly.
-    const speechConfig: any = {
-      languageCode: lang,
-    };
+    const speechConfig: any = {};
 
-    // If a specific voice is chosen by the user, add it to the config.
-    // The languageCode is still provided to ensure correctness.
     if (voiceName) {
       speechConfig.voiceConfig = {
         prebuiltVoiceConfig: { voiceName: voiceName },
       };
+    } else {
+      speechConfig.languageCode = lang;
     }
 
     const {media} = await ai.generate({
