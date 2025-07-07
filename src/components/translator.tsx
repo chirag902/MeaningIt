@@ -22,6 +22,7 @@ export function Translator() {
   const [detectedLangName, setDetectedLangName] = React.useState<string | null>(null);
   const [isTranslating, setIsTranslating] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
+  const [audioStream, setAudioStream] = React.useState<MediaStream | null>(null);
   
   const { toast } = useToast();
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
@@ -71,6 +72,13 @@ export function Translator() {
     };
   }, [sourceText, sourceLang, targetLang, performTranslation]);
 
+  const stopAudioStream = React.useCallback(() => {
+    if (audioStream) {
+      audioStream.getTracks().forEach(track => track.stop());
+      setAudioStream(null);
+    }
+  }, [audioStream]);
+
   React.useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -79,7 +87,10 @@ export function Translator() {
       recognition.interimResults = false;
       recognition.lang = sourceLang === 'auto' ? 'en-US' : sourceLang; // Default recognition lang if auto
       recognition.onstart = () => setIsListening(true);
-      recognition.onend = () => setIsListening(false);
+      recognition.onend = () => {
+          setIsListening(false);
+          stopAudioStream();
+      };
       recognition.onresult = (event) => {
           const newText = event.results[0][0].transcript;
           setSourceText(newText);
@@ -91,12 +102,17 @@ export function Translator() {
           description: `Error occurred in recognition: ${event.error}`,
         });
         setIsListening(false);
+        stopAudioStream();
       };
       recognitionRef.current = recognition;
     } else {
         console.warn("Speech recognition not supported in this browser.");
     }
-  }, [sourceLang, toast]);
+    
+    return () => {
+        stopAudioStream();
+    }
+  }, [sourceLang, toast, stopAudioStream]);
 
   const handleSwapLanguages = () => {
     if (sourceLang === 'auto') {
@@ -115,11 +131,31 @@ export function Translator() {
     });
   };
 
-  const handleListen = () => {
+  const handleListen = async () => {
     if (isListening) {
       recognitionRef.current?.stop();
     } else {
-      recognitionRef.current?.start();
+      if (recognitionRef.current) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              noiseSuppression: true,
+              echoCancellation: true,
+            },
+          });
+          setAudioStream(stream);
+          recognitionRef.current.start();
+        } catch (error) {
+          console.error('Error enabling voice clarity features:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Microphone Error',
+            description: 'Could not enable voice clarity. Please check permissions.',
+          });
+          // Fallback to start listening
+          recognitionRef.current.start();
+        }
+      }
     }
   };
 

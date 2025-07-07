@@ -26,11 +26,19 @@ export function LiveTranslator({ lang1, lang2 }: LiveTranslatorProps) {
   const [conversation, setConversation] = React.useState<ConversationTurn[]>([]);
   const [isListening, setIsListening] = React.useState<Speaker | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [audioStream, setAudioStream] = React.useState<MediaStream | null>(null);
 
   const { toast } = useToast();
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const conversationEndRef = React.useRef<HTMLDivElement | null>(null);
+
+  const stopAudioStream = React.useCallback(() => {
+    if (audioStream) {
+      audioStream.getTracks().forEach(track => track.stop());
+      setAudioStream(null);
+    }
+  }, [audioStream]);
 
   React.useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -47,7 +55,10 @@ export function LiveTranslator({ lang1, lang2 }: LiveTranslatorProps) {
     recognitionRef.current.interimResults = false;
 
     recognitionRef.current.onstart = () => {};
-    recognitionRef.current.onend = () => setIsListening(null);
+    recognitionRef.current.onend = () => {
+        setIsListening(null);
+        stopAudioStream();
+    };
 
     recognitionRef.current.onerror = (event) => {
       toast({
@@ -56,6 +67,7 @@ export function LiveTranslator({ lang1, lang2 }: LiveTranslatorProps) {
         description: `Error occurred in recognition: ${event.error}`,
       });
       setIsListening(null);
+      stopAudioStream();
     };
 
     recognitionRef.current.onresult = async (event) => {
@@ -102,21 +114,47 @@ export function LiveTranslator({ lang1, lang2 }: LiveTranslatorProps) {
         setIsProcessing(false);
     };
 
-  }, [toast, lang1, lang2, isListening]);
+  }, [toast, lang1, lang2, isListening, stopAudioStream]);
 
   React.useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
+  
+  React.useEffect(() => {
+    return () => {
+      stopAudioStream();
+    };
+  }, [stopAudioStream]);
 
-  const handleToggleListen = (speaker: Speaker) => {
+  const handleToggleListen = async (speaker: Speaker) => {
     if (isListening) {
       recognitionRef.current?.stop();
-      setIsListening(null);
     } else {
       if (recognitionRef.current) {
-        recognitionRef.current.lang = speaker === 'user1' ? lang1 : lang2;
-        recognitionRef.current.start();
-        setIsListening(speaker);
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              noiseSuppression: true,
+              echoCancellation: true,
+            },
+          });
+          setAudioStream(stream);
+
+          recognitionRef.current.lang = speaker === 'user1' ? lang1 : lang2;
+          recognitionRef.current.start();
+          setIsListening(speaker);
+        } catch (error) {
+          console.error('Error enabling voice clarity features:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Microphone Error',
+            description: 'Could not enable voice clarity. Please check permissions.',
+          });
+          // Fallback to start listening without enhanced stream
+          recognitionRef.current.lang = speaker === 'user1' ? lang1 : lang2;
+          recognitionRef.current.start();
+          setIsListening(speaker);
+        }
       }
     }
   };
