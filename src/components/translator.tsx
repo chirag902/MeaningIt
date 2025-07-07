@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Camera, MessageSquare } from 'lucide-react';
+import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { VoiceVisualizer } from './voice-visualizer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageTranslator } from './image-translator';
+import { LiveTranslator } from './live-translator';
 
 export function Translator() {
   const [sourceLang, setSourceLang] = React.useState('en-US');
@@ -210,10 +211,7 @@ export function Translator() {
             <ImageTranslator targetLang={targetLang} />
         </TabsContent>
         <TabsContent value="live" className="p-6">
-            <div className="text-center text-muted-foreground p-8 flex flex-col items-center gap-4">
-                <MessageSquare className="h-12 w-12"/>
-                <p>Live conversation mode is coming soon!</p>
-            </div>
+            <LiveTranslator lang1={sourceLang} lang2={targetLang} />
         </TabsContent>
         </Tabs>
       </CardContent>

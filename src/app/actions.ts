@@ -2,6 +2,7 @@
 
 import { translateWithSlang, type TranslateWithSlangInput } from '@/ai/flows/translate-with-slang';
 import { translateImage, type TranslateImageInput } from '@/ai/flows/translate-image-flow';
+import { textToSpeech, type TextToSpeechInput } from '@/ai/flows/text-to-speech-flow';
 import { z } from 'zod';
 
 const TranslateSchema = z.object({
@@ -46,5 +47,29 @@ export async function handleImageTranslation(data: TranslateImageInput) {
     } catch (error) {
         console.error('Image translation failed:', error);
         return { success: false, error: 'Failed to translate image. Please try again.' };
+    }
+}
+
+const TextToSpeechSchema = z.object({
+    text: z.string(),
+    lang: z.string(),
+});
+  
+export async function handleTextToSpeech(data: TextToSpeechInput) {
+    const validation = TextToSpeechSchema.safeParse(data);
+    if (!validation.success) {
+        return { success: false, error: 'Invalid input.' };
+    }
+    
+    if (data.text.trim().length === 0) {
+        return { success: true, audioDataUri: '' };
+    }
+    
+    try {
+        const result = await textToSpeech(validation.data);
+        return { success: true, audioDataUri: result.audioDataUri };
+    } catch (error) {
+        console.error('Text-to-speech failed:', error);
+        return { success: false, error: 'Failed to synthesize speech. Please try again.' };
     }
 }
