@@ -3,6 +3,7 @@
 import { translateWithSlang, type TranslateWithSlangInput } from '@/ai/flows/translate-with-slang';
 import { translateImage, type TranslateImageInput } from '@/ai/flows/translate-image-flow';
 import { textToSpeech, type TextToSpeechInput } from '@/ai/flows/text-to-speech-flow';
+import { getChatbotResponse } from '@/ai/flows/chatbot-flow';
 import { z } from 'zod';
 
 const TranslateSchema = z.object({
@@ -78,5 +79,38 @@ export async function handleTextToSpeech(data: TextToSpeechInput) {
     } catch (error) {
         console.error('Text-to-speech failed:', error);
         return { success: false, error: 'Failed to synthesize speech. Please try again.' };
+    }
+}
+
+const ChatbotActionInputSchema = z.object({
+    userInput: z.string(),
+    targetLanguage: z.string(),
+    history: z.array(z.object({
+        role: z.enum(['user', 'model']),
+        text: z.string(),
+    })).optional(),
+});
+
+export async function handleChatbot(data: z.infer<typeof ChatbotActionInputSchema>) {
+    const validation = ChatbotActionInputSchema.safeParse(data);
+    if (!validation.success) {
+        return { success: false, error: 'Invalid input.' };
+    }
+    
+    const genkitHistory = data.history?.map(turn => ({
+        role: turn.role,
+        parts: [{ text: turn.text }],
+    }));
+
+    try {
+        const result = await getChatbotResponse({
+            userInput: data.userInput,
+            targetLanguage: data.targetLanguage,
+            history: genkitHistory,
+        });
+        return { success: true, response: result.response };
+    } catch (error) {
+        console.error('Chatbot failed:', error);
+        return { success: false, error: 'Chatbot failed to respond. Please try again.' };
     }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Camera, Info, Lightbulb } from 'lucide-react';
+import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Camera, Info, Lightbulb, BrainCircuit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,6 +13,7 @@ import { VoiceVisualizer } from './voice-visualizer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageTranslator } from './image-translator';
 import { LiveTranslator } from './live-translator';
+import { ChatbotTutor } from './chatbot-tutor';
 
 export function Translator() {
   const [sourceLang, setSourceLang] = React.useState('auto');
@@ -214,10 +215,11 @@ export function Translator() {
       </CardHeader>
       <CardContent className="p-0 sm:p-6">
        <Tabs defaultValue="text" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-transparent p-0 m-0 rounded-none border-b">
+        <TabsList className="grid w-full grid-cols-4 bg-transparent p-0 m-0 rounded-none border-b">
             <TabsTrigger value="text" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Text</TabsTrigger>
             <TabsTrigger value="image" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Image</TabsTrigger>
             <TabsTrigger value="live" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Live</TabsTrigger>
+            <TabsTrigger value="tutor" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Tutor</TabsTrigger>
         </TabsList>
         <TabsContent value="text" className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -310,6 +312,9 @@ export function Translator() {
         </TabsContent>
         <TabsContent value="live" className="p-6">
             <LiveTranslator lang1={sourceLang} lang2={targetLang} />
+        </TabsContent>
+        <TabsContent value="tutor" className="p-6">
+            <ChatbotTutor targetLang={targetLang} />
         </TabsContent>
         </Tabs>
       </CardContent>
