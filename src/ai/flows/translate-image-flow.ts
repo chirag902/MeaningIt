@@ -53,6 +53,9 @@ const translateImageFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      throw new Error('The model failed to generate a valid translation from the image. Please try again.');
+    }
+    return output;
   }
 );

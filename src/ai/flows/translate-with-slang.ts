@@ -68,6 +68,9 @@ const translateWithSlangFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      throw new Error('The model failed to generate a valid translation. Please try again.');
+    }
+    return output;
   }
 );
