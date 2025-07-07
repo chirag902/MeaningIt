@@ -30,15 +30,15 @@ export async function textToSpeech(input: TextToSpeechInput): Promise<TextToSpee
 }
 
 // A fallback to get a default voice if no specific one is requested.
-const getDefaultVoiceForLang = (lang: string) => {
+const getDefaultVoiceForLang = (lang: string): string | undefined => {
     const langCode = lang.split('-')[0];
     const availableVoices = voicePacks[lang as keyof typeof voicePacks] || voicePacks[langCode as keyof typeof voicePacks];
     
     if (availableVoices && availableVoices.length > 0) {
         return availableVoices[0].id;
     }
-    // Generic fallback if no mapping exists
-    return 'Algenib'; 
+    // Return undefined to let the model auto-select
+    return undefined;
 }
 
 const textToSpeechFlow = ai.defineFlow(
@@ -48,19 +48,23 @@ const textToSpeechFlow = ai.defineFlow(
     outputSchema: TextToSpeechOutputSchema,
   },
   async ({text, lang, voiceName}) => {
-
     const selectedVoice = voiceName || getDefaultVoiceForLang(lang);
+
+    const generateConfig: any = {
+      responseModalities: ['AUDIO'],
+    };
+
+    if (selectedVoice) {
+      generateConfig.speechConfig = {
+        voiceConfig: {
+          prebuiltVoiceConfig: { voiceName: selectedVoice },
+        },
+      };
+    }
 
     const {media} = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
-      config: {
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {voiceName: selectedVoice},
-          },
-        },
-      },
+      config: generateConfig,
       prompt: text,
     });
     if (!media) {
