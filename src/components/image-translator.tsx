@@ -11,9 +11,10 @@ import { Textarea } from './ui/textarea';
 
 interface ImageTranslatorProps {
   targetLang: string;
+  onTranslateSuccess: () => void;
 }
 
-export function ImageTranslator({ targetLang }: ImageTranslatorProps) {
+export function ImageTranslator({ targetLang, onTranslateSuccess }: ImageTranslatorProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = React.useState<boolean | null>(null);
@@ -81,6 +82,7 @@ export function ImageTranslator({ targetLang }: ImageTranslatorProps) {
 
     if (result.success) {
       setTranslatedText(result.translation);
+      onTranslateSuccess();
     } else {
       toast({
         variant: 'destructive',

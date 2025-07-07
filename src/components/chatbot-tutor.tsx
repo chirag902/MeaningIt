@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 
 interface ChatbotTutorProps {
   targetLang: string;
+  onMessageSent: () => void;
 }
 
 type ConversationTurn = {
@@ -22,7 +23,7 @@ type ConversationTurn = {
   text: string;
 };
 
-export function ChatbotTutor({ targetLang }: ChatbotTutorProps) {
+export function ChatbotTutor({ targetLang, onMessageSent }: ChatbotTutorProps) {
   const { toast } = useToast();
   const getLangName = (code: string) => languages.find(l => l.code === code)?.name || code;
   
@@ -66,7 +67,8 @@ export function ChatbotTutor({ targetLang }: ChatbotTutorProps) {
       setIsLoading(false);
     };
     startConversation();
-  }, [targetLang, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetLang]);
 
   React.useEffect(() => {
     scrollAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -100,6 +102,7 @@ export function ChatbotTutor({ targetLang }: ChatbotTutorProps) {
   const handleSendMessage = async (text: string) => {
     if (text.trim() === '' || isLoading) return;
 
+    onMessageSent();
     const newUserMessage: ConversationTurn = { role: 'user', text };
     const currentConversation = [...conversation, newUserMessage];
     setConversation(currentConversation);

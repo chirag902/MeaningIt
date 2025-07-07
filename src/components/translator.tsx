@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Info, Lightbulb, Zap } from 'lucide-react';
+import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Info, Lightbulb, Zap, User as ProfileIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,6 +17,8 @@ import { ChatbotTutor } from './chatbot-tutor';
 import { voicePacks } from '@/lib/voices';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useGamification } from '@/hooks/use-gamification';
+import { GamificationProfile } from './gamification-profile';
 
 export function Translator() {
   const [sourceLang, setSourceLang] = React.useState('auto');
@@ -37,6 +39,8 @@ export function Translator() {
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
   const debounceRef = React.useRef<NodeJS.Timeout | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  
+  const { logTextTranslation, logImageTranslation, logTutorMessage } = useGamification();
 
   const availableVoices = React.useMemo(() => {
     const langCode = targetLang.split('-')[0];
@@ -68,6 +72,7 @@ export function Translator() {
       setDetectedLangName(result.detectedLanguageName || null);
       setToneAnalysis(result.toneAnalysis || null);
       setToneSuggestions(result.suggestions || []);
+      logTextTranslation(targetLang);
     } else {
       toast({
         variant: 'destructive',
@@ -76,7 +81,7 @@ export function Translator() {
       });
     }
     setIsTranslating(false);
-  }, [sourceLang, targetLang, toast, isSpeedBoosted]);
+  }, [sourceLang, targetLang, toast, isSpeedBoosted, logTextTranslation]);
 
   React.useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -238,11 +243,12 @@ export function Translator() {
       </CardHeader>
       <CardContent className="p-0 sm:p-6">
        <Tabs defaultValue="text" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-transparent p-0 m-0 rounded-none border-b">
+        <TabsList className="grid w-full grid-cols-5 bg-transparent p-0 m-0 rounded-none border-b">
             <TabsTrigger value="text" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Text</TabsTrigger>
             <TabsTrigger value="image" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Image</TabsTrigger>
             <TabsTrigger value="live" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Live</TabsTrigger>
             <TabsTrigger value="tutor" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Tutor</TabsTrigger>
+            <TabsTrigger value="profile" className="py-4 rounded-none data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary">Profile</TabsTrigger>
         </TabsList>
         <TabsContent value="text" className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -350,13 +356,16 @@ export function Translator() {
             </div>
         </TabsContent>
         <TabsContent value="image" className="p-6">
-            <ImageTranslator targetLang={targetLang} />
+            <ImageTranslator targetLang={targetLang} onTranslateSuccess={logImageTranslation} />
         </TabsContent>
         <TabsContent value="live" className="p-6">
             <LiveTranslator lang1={sourceLang} lang2={targetLang} />
         </TabsContent>
         <TabsContent value="tutor" className="p-6">
-            <ChatbotTutor targetLang={targetLang} />
+            <ChatbotTutor targetLang={targetLang} onMessageSent={logTutorMessage} />
+        </TabsContent>
+        <TabsContent value="profile" className="p-6">
+            <GamificationProfile />
         </TabsContent>
         </Tabs>
       </CardContent>
