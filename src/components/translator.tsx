@@ -1,19 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Camera, Info, Lightbulb, BrainCircuit } from 'lucide-react';
+import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Info, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { languages } from '@/lib/languages';
-import { handleTranslation } from '@/app/actions';
+import { handleTranslation, handleTextToSpeech } from '@/app/actions';
 import { useToast } from '@/hooks/use-toast';
 import { VoiceVisualizer } from './voice-visualizer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageTranslator } from './image-translator';
 import { LiveTranslator } from './live-translator';
 import { ChatbotTutor } from './chatbot-tutor';
+import { voicePacks } from '@/lib/voices';
 
 export function Translator() {
   const [sourceLang, setSourceLang] = React.useState('auto');
@@ -23,13 +24,26 @@ export function Translator() {
   const [detectedLangName, setDetectedLangName] = React.useState<string | null>(null);
   const [isTranslating, setIsTranslating] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
+  const [isSpeaking, setIsSpeaking] = React.useState(false);
   const [audioStream, setAudioStream] = React.useState<MediaStream | null>(null);
   const [toneAnalysis, setToneAnalysis] = React.useState<string | null>(null);
   const [toneSuggestions, setToneSuggestions] = React.useState<string[]>([]);
-  
+  const [selectedVoice, setSelectedVoice] = React.useState<string | undefined>(undefined);
+
   const { toast } = useToast();
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
   const debounceRef = React.useRef<NodeJS.Timeout | null>(null);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  const availableVoices = React.useMemo(() => {
+    const langCode = targetLang.split('-')[0];
+    return voicePacks[targetLang as keyof typeof voicePacks] || voicePacks[langCode as keyof typeof voicePacks];
+  }, [targetLang]);
+
+  React.useEffect(() => {
+    // Reset voice selection when target language changes
+    setSelectedVoice(availableVoices?.[0]?.id);
+  }, [targetLang, availableVoices]);
 
   const performTranslation = React.useCallback(async (textToTranslate: string) => {
     if (textToTranslate.trim() === '') {
@@ -164,18 +178,23 @@ export function Translator() {
     }
   };
 
-  const handleSpeak = () => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(translatedText);
-      utterance.lang = targetLang;
-      window.speechSynthesis.speak(utterance);
+  const handleSpeak = async () => {
+    if (!translatedText || isSpeaking || !audioRef.current) return;
+    setIsSpeaking(true);
+    
+    const result = await handleTextToSpeech({ text: translatedText, lang: targetLang, voiceName: selectedVoice });
+
+    if (result.success && result.audioDataUri) {
+        audioRef.current.src = result.audioDataUri;
+        audioRef.current.play().catch(e => console.error("Audio playback failed", e));
     } else {
         toast({
             variant: "destructive",
-            title: "Not Supported",
-            description: "Your browser does not support text-to-speech."
-        })
+            title: "Playback Error",
+            description: result.error || "Could not play audio."
+        });
     }
+    setIsSpeaking(false);
   };
 
   return (
@@ -292,12 +311,24 @@ export function Translator() {
                 className="h-48 resize-none bg-muted/50 text-base"
                 />
                 <div className="flex items-center space-x-2 h-10">
-                <Button onClick={handleCopyToClipboard} variant="outline" size="icon" disabled={!translatedText}>
-                    <Copy className="h-5 w-5" />
-                </Button>
-                <Button onClick={handleSpeak} variant="outline" size="icon" disabled={!translatedText}>
-                    <Volume2 className="h-5 w-5" />
-                </Button>
+                    <Button onClick={handleCopyToClipboard} variant="outline" size="icon" disabled={!translatedText}>
+                        <Copy className="h-5 w-5" />
+                    </Button>
+                    <Button onClick={handleSpeak} variant="outline" size="icon" disabled={!translatedText || isSpeaking}>
+                        {isSpeaking ? <Loader2 className="h-5 w-5 animate-spin"/> : <Volume2 className="h-5 w-5" />}
+                    </Button>
+                    {availableVoices && availableVoices.length > 0 && (
+                        <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Select a voice" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {availableVoices.map(voice => (
+                                    <SelectItem key={voice.id} value={voice.id}>{voice.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
                 </div>
                 {isTranslating && (
                 <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-md">
@@ -318,6 +349,7 @@ export function Translator() {
         </TabsContent>
         </Tabs>
       </CardContent>
+      <audio ref={audioRef} onEnded={() => setIsSpeaking(false)} className="hidden" />
     </Card>
   );
 }

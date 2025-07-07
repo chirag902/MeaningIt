@@ -3,7 +3,7 @@
 import { translateWithSlang, type TranslateWithSlangInput } from '@/ai/flows/translate-with-slang';
 import { translateImage, type TranslateImageInput } from '@/ai/flows/translate-image-flow';
 import { textToSpeech, type TextToSpeechInput } from '@/ai/flows/text-to-speech-flow';
-import { getChatbotResponse } from '@/ai/flows/chatbot-flow';
+import { getChatbotResponse, type ChatbotInput } from '@/ai/flows/chatbot-flow';
 import { z } from 'zod';
 
 const TranslateSchema = z.object({
@@ -61,6 +61,7 @@ export async function handleImageTranslation(data: TranslateImageInput) {
 const TextToSpeechSchema = z.object({
     text: z.string(),
     lang: z.string(),
+    voiceName: z.string().optional(),
 });
   
 export async function handleTextToSpeech(data: TextToSpeechInput) {
