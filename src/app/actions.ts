@@ -61,7 +61,7 @@ export async function handleImageTranslation(data: TranslateImageInput) {
 
 const TextToSpeechSchema = z.object({
     text: z.string(),
-    voiceName: z.string().optional(),
+    targetLanguage: z.string(),
 });
   
 export async function handleTextToSpeech(data: TextToSpeechInput) {

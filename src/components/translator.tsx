@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageTranslator } from './image-translator';
 import { LiveTranslator } from './live-translator';
 import { ChatbotTutor } from './chatbot-tutor';
-import { voicePacks } from '@/lib/voices';
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useGamification } from '@/hooks/use-gamification';
@@ -32,7 +31,6 @@ export function Translator() {
   const [audioStream, setAudioStream] = React.useState<MediaStream | null>(null);
   const [toneAnalysis, setToneAnalysis] = React.useState<string | null>(null);
   const [toneSuggestions, setToneSuggestions] = React.useState<string[]>([]);
-  const [selectedVoice, setSelectedVoice] = React.useState<string | undefined>(undefined);
   const [isSpeedBoosted, setIsSpeedBoosted] = React.useState(false);
   const [isPrivateMode, setIsPrivateMode] = React.useState(false);
 
@@ -42,16 +40,6 @@ export function Translator() {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   
   const { logTextTranslation, logImageTranslation, logTutorMessage } = useGamification();
-
-  const availableVoices = React.useMemo(() => {
-    const langCode = targetLang.split('-')[0];
-    return voicePacks[targetLang as keyof typeof voicePacks] || voicePacks[langCode as keyof typeof voicePacks];
-  }, [targetLang]);
-
-  React.useEffect(() => {
-    // Reset voice selection when target language changes
-    setSelectedVoice(availableVoices?.[0]?.id);
-  }, [targetLang, availableVoices]);
   
   React.useEffect(() => {
     if (isPrivateMode) {
@@ -195,7 +183,7 @@ export function Translator() {
     if (!translatedText || isSpeaking || !audioRef.current) return;
     setIsSpeaking(true);
     
-    const result = await handleTextToSpeech({ text: translatedText, voiceName: selectedVoice });
+    const result = await handleTextToSpeech({ text: translatedText, targetLanguage: targetLang });
 
     if (result.success && result.audioDataUri) {
         audioRef.current.src = result.audioDataUri;
@@ -347,18 +335,6 @@ export function Translator() {
                     <Button onClick={handleSpeak} variant="outline" size="icon" disabled={!translatedText || isSpeaking}>
                         {isSpeaking ? <Loader2 className="h-5 w-5 animate-spin"/> : <Volume2 className="h-5 w-5" />}
                     </Button>
-                    {availableVoices && availableVoices.length > 0 && (
-                        <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-                            <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Select a voice" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableVoices.map(voice => (
-                                    <SelectItem key={voice.id} value={voice.id}>{voice.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
                 </div>
                 {isTranslating && (
                 <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-md">
