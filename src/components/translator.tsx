@@ -1,23 +1,33 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRightLeft, Copy, Loader2, Mic, Volume2, Info, Lightbulb, Zap, User as ProfileIcon, Shield } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { languages } from '@/lib/languages';
-import { handleTranslation, handleTextToSpeech } from '@/app/actions';
-import { useToast } from '@/hooks/use-toast';
-import { VoiceVisualizer } from './voice-visualizer';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ImageTranslator } from './image-translator';
-import { LiveTranslator } from './live-translator';
-import { ChatbotTutor } from './chatbot-tutor';
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { useGamification } from '@/hooks/use-gamification';
-import { GamificationProfile } from './gamification-profile';
+import {
+  ArrowRightLeft,
+  Copy,
+  Loader2,
+  Mic,
+  Volume2,
+  Info,
+  Lightbulb,
+  Zap,
+  Shield,
+} from 'lucide-react';
+import {Button} from '@/components/ui/button';
+import {Card, CardContent, CardHeader} from '@/components/ui/card';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import {Textarea} from '@/components/ui/textarea';
+import {languages} from '@/lib/languages';
+import {handleTranslation, handleTextToSpeech} from '@/app/actions';
+import {useToast} from '@/hooks/use-toast';
+import {VoiceVisualizer} from './voice-visualizer';
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
+import {ImageTranslator} from './image-translator';
+import {LiveTranslator} from './live-translator';
+import {ChatbotTutor} from './chatbot-tutor';
+import {Switch} from '@/components/ui/switch';
+import {Label} from '@/components/ui/label';
+import {useGamification} from '@/hooks/use-gamification';
+import {GamificationProfile} from './gamification-profile';
 
 export function Translator() {
   const [sourceLang, setSourceLang] = React.useState('auto');
@@ -34,13 +44,13 @@ export function Translator() {
   const [isSpeedBoosted, setIsSpeedBoosted] = React.useState(false);
   const [isPrivateMode, setIsPrivateMode] = React.useState(false);
 
-  const { toast } = useToast();
+  const {toast} = useToast();
   const recognitionRef = React.useRef<SpeechRecognition | null>(null);
   const debounceRef = React.useRef<NodeJS.Timeout | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
-  
-  const { logTextTranslation, logImageTranslation, logTutorMessage } = useGamification();
-  
+
+  const {logTextTranslation, logImageTranslation, logTutorMessage} = useGamification();
+
   React.useEffect(() => {
     if (isPrivateMode) {
       toast({
@@ -56,50 +66,56 @@ export function Translator() {
     setToneSuggestions([]);
   }, [isPrivateMode, toast]);
 
-  const performTranslation = React.useCallback(async (textToTranslate: string) => {
-    if (textToTranslate.trim() === '') {
-      setTranslatedText('');
-      setDetectedLangName(null);
-      setToneAnalysis(null);
-      setToneSuggestions([]);
-      return;
-    }
-    setIsTranslating(true);
-    const result = await handleTranslation({
-      text: textToTranslate,
-      sourceLanguage: sourceLang === 'auto' ? 'auto' : languages.find(l => l.code === sourceLang)?.name || 'English',
-      targetLanguage: languages.find(l => l.code === targetLang)?.name || 'Spanish',
-      isSpeedBoosted: isSpeedBoosted,
-    });
-    if (result.success) {
-      setTranslatedText(result.translation);
-      setDetectedLangName(result.detectedLanguageName || null);
-      setToneAnalysis(result.toneAnalysis || null);
-      setToneSuggestions(result.suggestions || []);
-      if (!isPrivateMode) {
-        logTextTranslation(targetLang);
-      }
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Translation Error',
-        description: result.error,
-      });
-    }
-    setIsTranslating(false);
-  }, [sourceLang, targetLang, toast, isSpeedBoosted, logTextTranslation, isPrivateMode]);
-
-  React.useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if(sourceText.trim().length > 0) {
-        debounceRef.current = setTimeout(() => {
-          performTranslation(sourceText);
-        }, 500);
-    } else {
+  const performTranslation = React.useCallback(
+    async (textToTranslate: string) => {
+      if (textToTranslate.trim() === '') {
         setTranslatedText('');
         setDetectedLangName(null);
         setToneAnalysis(null);
         setToneSuggestions([]);
+        return;
+      }
+      setIsTranslating(true);
+      const result = await handleTranslation({
+        text: textToTranslate,
+        sourceLanguage:
+          sourceLang === 'auto'
+            ? 'auto'
+            : languages.find(l => l.code === sourceLang)?.name || 'English',
+        targetLanguage: languages.find(l => l.code === targetLang)?.name || 'Spanish',
+        isSpeedBoosted: isSpeedBoosted,
+      });
+      if (result.success) {
+        setTranslatedText(result.translation);
+        setDetectedLangName(result.detectedLanguageName || null);
+        setToneAnalysis(result.toneAnalysis || null);
+        setToneSuggestions(result.suggestions || []);
+        if (!isPrivateMode) {
+          logTextTranslation(targetLang);
+        }
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Translation Error',
+          description: result.error,
+        });
+      }
+      setIsTranslating(false);
+    },
+    [sourceLang, targetLang, toast, isSpeedBoosted, logTextTranslation, isPrivateMode]
+  );
+
+  React.useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (sourceText.trim().length > 0) {
+      debounceRef.current = setTimeout(() => {
+        performTranslation(sourceText);
+      }, 500);
+    } else {
+      setTranslatedText('');
+      setDetectedLangName(null);
+      setToneAnalysis(null);
+      setToneSuggestions([]);
     }
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -122,14 +138,14 @@ export function Translator() {
       recognition.lang = sourceLang === 'auto' ? 'en-US' : sourceLang; // Default recognition lang if auto
       recognition.onstart = () => setIsListening(true);
       recognition.onend = () => {
-          setIsListening(false);
-          stopAudioStream();
+        setIsListening(false);
+        stopAudioStream();
       };
-      recognition.onresult = (event) => {
-          const newText = event.results[0][0].transcript;
-          setSourceText(newText);
+      recognition.onresult = event => {
+        const newText = event.results[0][0].transcript;
+        setSourceText(newText);
       };
-      recognition.onerror = (event) => {
+      recognition.onerror = event => {
         toast({
           variant: 'destructive',
           title: 'Speech Error',
@@ -140,18 +156,18 @@ export function Translator() {
       };
       recognitionRef.current = recognition;
     } else {
-        console.warn("Speech recognition not supported in this browser.");
+      console.warn('Speech recognition not supported in this browser.');
     }
-    
+
     return () => {
-        stopAudioStream();
-    }
+      stopAudioStream();
+    };
   }, [sourceLang, toast, stopAudioStream]);
 
   const handleSwapLanguages = () => {
     if (sourceLang === 'auto') {
-        toast({ title: "Can't swap from Auto-detect", description: "Please select a specific language to swap." });
-        return;
+      toast({title: "Can't swap from Auto-detect", description: 'Please select a specific language to swap.'});
+      return;
     }
     setSourceLang(targetLang);
     setTargetLang(sourceLang);
@@ -161,7 +177,7 @@ export function Translator() {
 
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(translatedText).then(() => {
-      toast({ title: 'Copied to clipboard!' });
+      toast({title: 'Copied to clipboard!'});
     });
   };
 
@@ -169,31 +185,37 @@ export function Translator() {
     if (isListening) {
       recognitionRef.current?.stop();
     } else if (recognitionRef.current) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: { noiseSuppression: true, echoCancellation: true } });
-            setAudioStream(stream);
-            recognitionRef.current.start();
-        } catch (err) {
-            toast({ variant: 'destructive', title: 'Microphone Error', description: 'Could not access the microphone. Please check your browser permissions.'});
-        }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {noiseSuppression: true, echoCancellation: true},
+        });
+        setAudioStream(stream);
+        recognitionRef.current.start();
+      } catch (err) {
+        toast({
+          variant: 'destructive',
+          title: 'Microphone Error',
+          description: 'Could not access the microphone. Please check your browser permissions.',
+        });
+      }
     }
   };
 
   const handleSpeak = async () => {
     if (!translatedText || isSpeaking || !audioRef.current) return;
     setIsSpeaking(true);
-    
-    const result = await handleTextToSpeech({ text: translatedText });
+
+    const result = await handleTextToSpeech({text: translatedText, languageCode: targetLang});
 
     if (result.success && result.audioDataUri) {
-        audioRef.current.src = result.audioDataUri;
-        audioRef.current.play().catch(e => console.error("Audio playback failed", e));
+      audioRef.current.src = result.audioDataUri;
+      audioRef.current.play().catch(e => console.error('Audio playback failed', e));
     } else {
-        toast({
-            variant: "destructive",
-            title: "Playback Error",
-            description: result.error || "Could not play audio."
-        });
+      toast({
+        variant: 'destructive',
+        title: 'Playback Error',
+        description: result.error || 'Could not play audio.',
+      });
     }
     setIsSpeaking(false);
   };
@@ -202,12 +224,18 @@ export function Translator() {
     <Card className="w-full max-w-4xl border-0 shadow-2xl bg-card/60 backdrop-blur-xl">
       <CardHeader className="border-b p-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <Select value={sourceLang} onValueChange={(value) => { setSourceLang(value); setDetectedLangName(null); }}>
+          <Select
+            value={sourceLang}
+            onValueChange={value => {
+              setSourceLang(value);
+              setDetectedLangName(null);
+            }}
+          >
             <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Source Language" />
             </SelectTrigger>
             <SelectContent>
-              {languages.map((lang) => (
+              {languages.map(lang => (
                 <SelectItem key={lang.code} value={lang.code}>
                   {lang.name}
                 </SelectItem>
@@ -215,7 +243,13 @@ export function Translator() {
             </SelectContent>
           </Select>
 
-          <Button variant="ghost" size="icon" onClick={handleSwapLanguages} className="flex-shrink-0" disabled={sourceLang === 'auto'}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSwapLanguages}
+            className="flex-shrink-0"
+            disabled={sourceLang === 'auto'}
+          >
             <ArrowRightLeft className="h-5 w-5 text-muted-foreground" />
           </Button>
 
@@ -224,66 +258,72 @@ export function Translator() {
               <SelectValue placeholder="Target Language" />
             </SelectTrigger>
             <SelectContent>
-              {languages.map((lang) => (
-                 lang.code !== 'auto' && <SelectItem key={lang.code} value={lang.code}>
-                  {lang.name}
-                </SelectItem>
-              ))}
+              {languages.map(
+                lang =>
+                  lang.code !== 'auto' && (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      {lang.name}
+                    </SelectItem>
+                  )
+              )}
             </SelectContent>
           </Select>
         </div>
       </CardHeader>
       <CardContent className="p-0">
-       <Tabs defaultValue="text" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 h-auto p-1 mx-auto max-w-lg mt-4 rounded-xl bg-muted/60">
+        <Tabs defaultValue="text" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 h-auto p-1 mx-auto max-w-lg mt-4 rounded-xl bg-muted/60">
             <TabsTrigger value="text">Text</TabsTrigger>
             <TabsTrigger value="image">Image</TabsTrigger>
             <TabsTrigger value="live">Live</TabsTrigger>
             <TabsTrigger value="tutor">Tutor</TabsTrigger>
             <TabsTrigger value="profile">Profile</TabsTrigger>
-        </TabsList>
-        <TabsContent value="text" className="p-6">
+          </TabsList>
+          <TabsContent value="text" className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4">
                 <Textarea
-                placeholder={isPrivateMode ? "Private mode is on. History is not saved." : "Enter text to translate..."}
-                value={sourceText}
-                onChange={(e) => setSourceText(e.target.value)}
-                className="h-48 resize-none text-base bg-transparent"
+                  placeholder={
+                    isPrivateMode ? 'Private mode is on. History is not saved.' : 'Enter text to translate...'
+                  }
+                  value={sourceText}
+                  onChange={e => setSourceText(e.target.value)}
+                  className="h-48 resize-none text-base bg-transparent"
                 />
                 <div className="flex items-center justify-between h-10">
-                    <div className="flex items-center gap-4">
-                        <Button onClick={handleListen} variant="outline" size="icon" disabled={!recognitionRef.current}>
-                            <Mic className={`h-5 w-5 ${isListening ? 'text-destructive' : ''}`} />
-                        </Button>
-                        {isListening ? (
-                            <VoiceVisualizer />
-                        ) : (
-                            sourceLang === 'auto' && detectedLangName && (
-                                <div className="text-sm text-muted-foreground">
-                                    Detected: <span className="font-medium text-foreground">{detectedLangName}</span>
-                                </div>
-                            )
-                        )}
-                    </div>
-                     <div className="flex items-center gap-x-6">
-                        <div className="flex items-center space-x-2">
-                           <Switch id="private-mode" checked={isPrivateMode} onCheckedChange={setIsPrivateMode} />
-                           <Label htmlFor="private-mode" className="flex items-center gap-1.5 cursor-pointer">
-                               <Shield className="h-4 w-4 text-primary"/>
-                               <span className="text-sm font-medium">Private</span>
-                           </Label>
+                  <div className="flex items-center gap-4">
+                    <Button onClick={handleListen} variant="outline" size="icon" disabled={!recognitionRef.current}>
+                      <Mic className={`h-5 w-5 ${isListening ? 'text-destructive' : ''}`} />
+                    </Button>
+                    {isListening ? (
+                      <VoiceVisualizer />
+                    ) : (
+                      sourceLang === 'auto' &&
+                      detectedLangName && (
+                        <div className="text-sm text-muted-foreground">
+                          Detected: <span className="font-medium text-foreground">{detectedLangName}</span>
                         </div>
-                        <div className="flex items-center space-x-2">
-                            <Switch id="speed-boost" checked={isSpeedBoosted} onCheckedChange={setIsSpeedBoosted} />
-                            <Label htmlFor="speed-boost" className="flex items-center gap-1.5 cursor-pointer">
-                                <Zap className="h-4 w-4 text-amber-500"/>
-                                <span className="text-sm font-medium">Boost</span>
-                            </Label>
-                        </div>
+                      )
+                    )}
+                  </div>
+                  <div className="flex items-center gap-x-6">
+                    <div className="flex items-center space-x-2">
+                      <Switch id="private-mode" checked={isPrivateMode} onCheckedChange={setIsPrivateMode} />
+                      <Label htmlFor="private-mode" className="flex items-center gap-1.5 cursor-pointer">
+                        <Shield className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium">Private</span>
+                      </Label>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch id="speed-boost" checked={isSpeedBoosted} onCheckedChange={setIsSpeedBoosted} />
+                      <Label htmlFor="speed-boost" className="flex items-center gap-1.5 cursor-pointer">
+                        <Zap className="h-4 w-4 text-amber-500" />
+                        <span className="text-sm font-medium">Boost</span>
+                      </Label>
+                    </div>
+                  </div>
                 </div>
-                 {!isSpeedBoosted && toneAnalysis && (
+                {!isSpeedBoosted && toneAnalysis && (
                   <Card className="p-3 bg-muted/30 border-dashed">
                     <CardContent className="p-0">
                       <div className="flex items-start gap-3">
@@ -295,75 +335,87 @@ export function Translator() {
                       </div>
                       {toneSuggestions && toneSuggestions.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-dashed">
-                           <div className="flex items-start gap-3">
-                             <Lightbulb className="h-5 w-5 mt-0.5 text-amber-500 flex-shrink-0" />
-                             <div>
-                                <p className="font-semibold text-sm">Suggestions</p>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {toneSuggestions.map((suggestion, index) => (
-                                    <Button
-                                      key={index}
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setSourceText(suggestion)}
-                                      className="text-xs h-auto py-1 px-2 bg-background hover:bg-muted"
-                                    >
-                                      {suggestion}
-                                    </Button>
-                                  ))}
-                                </div>
+                          <div className="flex items-start gap-3">
+                            <Lightbulb className="h-5 w-5 mt-0.5 text-amber-500 flex-shrink-0" />
+                            <div>
+                              <p className="font-semibold text-sm">Suggestions</p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {toneSuggestions.map((suggestion, index) => (
+                                  <Button
+                                    key={index}
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSourceText(suggestion)}
+                                    className="text-xs h-auto py-1 px-2 bg-background hover:bg-muted"
+                                  >
+                                    {suggestion}
+                                  </Button>
+                                ))}
                               </div>
-                           </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </CardContent>
                   </Card>
                 )}
-            </div>
+              </div>
 
-            <div className="flex flex-col gap-4 relative">
+              <div className="flex flex-col gap-4 relative">
                 <Textarea
-                placeholder="Translation"
-                value={translatedText}
-                readOnly
-                className="h-48 resize-none bg-muted/50 text-base"
+                  placeholder="Translation"
+                  value={translatedText}
+                  readOnly
+                  className="h-48 resize-none bg-muted/50 text-base"
                 />
                 <div className="flex items-center space-x-2 h-10">
-                    <Button onClick={handleCopyToClipboard} variant="outline" size="icon" disabled={!translatedText}>
-                        <Copy className="h-5 w-5" />
-                    </Button>
-                    <Button onClick={handleSpeak} variant="outline" size="icon" disabled={!translatedText || isSpeaking}>
-                        {isSpeaking ? <Loader2 className="h-5 w-5 animate-spin"/> : <Volume2 className="h-5 w-5" />}
-                    </Button>
+                  <Button onClick={handleCopyToClipboard} variant="outline" size="icon" disabled={!translatedText}>
+                    <Copy className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    onClick={handleSpeak}
+                    variant="outline"
+                    size="icon"
+                    disabled={!translatedText || isSpeaking}
+                  >
+                    {isSpeaking ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Volume2 className="h-5 w-5" />
+                    )}
+                  </Button>
                 </div>
                 {isTranslating && (
-                <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-md">
+                  <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-md">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
+                  </div>
                 )}
+              </div>
             </div>
-            </div>
-        </TabsContent>
-        <TabsContent value="image" className="p-6">
-            <ImageTranslator targetLang={targetLang} onTranslateSuccess={() => {
+          </TabsContent>
+          <TabsContent value="image" className="p-6">
+            <ImageTranslator
+              targetLang={targetLang}
+              onTranslateSuccess={() => {
                 if (!isPrivateMode) logImageTranslation();
-            }} />
-        </TabsContent>
-        <TabsContent value="live" className="p-6">
+              }}
+            />
+          </TabsContent>
+          <TabsContent value="live" className="p-6">
             <LiveTranslator lang1={sourceLang} lang2={targetLang} />
-        </TabsContent>
-        <TabsContent value="tutor" className="p-6">
-            <ChatbotTutor 
-              targetLang={targetLang} 
+          </TabsContent>
+          <TabsContent value="tutor" className="p-6">
+            <ChatbotTutor
+              targetLang={targetLang}
               onMessageSent={() => {
                 if (!isPrivateMode) logTutorMessage();
               }}
               isPrivate={isPrivateMode}
             />
-        </TabsContent>
-        <TabsContent value="profile" className="p-6">
+          </TabsContent>
+          <TabsContent value="profile" className="p-6">
             <GamificationProfile />
-        </TabsContent>
+          </TabsContent>
         </Tabs>
       </CardContent>
       <audio ref={audioRef} onEnded={() => setIsSpeaking(false)} className="hidden" />

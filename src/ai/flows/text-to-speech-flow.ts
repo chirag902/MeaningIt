@@ -14,6 +14,12 @@ import wav from 'wav';
 
 const TextToSpeechInputSchema = z.object({
   text: z.string().describe('The text to convert to speech.'),
+  languageCode: z
+    .string()
+    .optional()
+    .describe(
+      'The IETF BCP-47 language tag of the text (e.g., "en-US", "es-ES"). If not provided, the model will attempt to auto-detect the language.'
+    ),
 });
 export type TextToSpeechInput = z.infer<typeof TextToSpeechInputSchema>;
 
@@ -32,12 +38,14 @@ const textToSpeechFlow = ai.defineFlow(
     inputSchema: TextToSpeechInputSchema,
     outputSchema: TextToSpeechOutputSchema,
   },
-  async ({text}) => {
-    // Let the AI model automatically detect the language from the text for robustness.
+  async ({text, languageCode}) => {
     const {media} = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
       config: {
         responseModalities: ['AUDIO'],
+        speechConfig: {
+          ...(languageCode && {languageCode: languageCode}),
+        },
       },
       prompt: text,
     });
@@ -45,43 +53,39 @@ const textToSpeechFlow = ai.defineFlow(
     if (!media) {
       throw new Error('No media returned from TTS model.');
     }
-    
-    const audioBuffer = Buffer.from(
-      media.url.substring(media.url.indexOf(',') + 1),
-      'base64'
-    );
+
+    const audioBuffer = Buffer.from(media.url.substring(media.url.indexOf(',') + 1), 'base64');
     const wavBase64 = await toWav(audioBuffer);
-    
+
     return {
       audioDataUri: 'data:audio/wav;base64,' + wavBase64,
     };
   }
 );
 
-
 async function toWav(
-    pcmData: Buffer,
-    channels = 1,
-    rate = 24000,
-    sampleWidth = 2
-  ): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const writer = new wav.Writer({
-        channels,
-        sampleRate: rate,
-        bitDepth: sampleWidth * 8,
-      });
-  
-      let bufs = [] as any[];
-      writer.on('error', reject);
-      writer.on('data', function (d) {
-        bufs.push(d);
-      });
-      writer.on('end', function () {
-        resolve(Buffer.concat(bufs).toString('base64'));
-      });
-  
-      writer.write(pcmData);
-      writer.end();
+  pcmData: Buffer,
+  channels = 1,
+  rate = 24000,
+  sampleWidth = 2
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const writer = new wav.Writer({
+      channels,
+      sampleRate: rate,
+      bitDepth: sampleWidth * 8,
     });
-  }
+
+    let bufs = [] as any[];
+    writer.on('error', reject);
+    writer.on('data', function (d) {
+      bufs.push(d);
+    });
+    writer.on('end', function () {
+      resolve(Buffer.concat(bufs).toString('base64'));
+    });
+
+    writer.write(pcmData);
+    writer.end();
+  });
+}
