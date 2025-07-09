@@ -140,10 +140,10 @@ export function ChatbotTutor({ targetLang, onMessageSent, isPrivate }: ChatbotTu
     if (isListening) {
       recognitionRef.current?.stop();
     } else if (recognitionRef.current) {
-        recognitionRef.current.lang = targetLang;
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: { noiseSuppression: true, echoCancellation: true } });
             setAudioStream(stream);
+            recognitionRef.current.lang = targetLang;
             recognitionRef.current.start();
         } catch (err) {
             toast({ variant: 'destructive', title: 'Microphone Error', description: 'Could not access the microphone. Please check your browser permissions.'});
