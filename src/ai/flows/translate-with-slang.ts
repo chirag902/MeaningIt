@@ -39,41 +39,28 @@ const translateWithSlangFlow = ai.defineFlow(
     outputSchema: TranslateWithSlangOutputSchema,
   },
   async (input) => {
-    // Constructing the prompt dynamically as a system prompt.
-    // This makes the logic more robust than using a Handlebars template.
-    const systemPromptLines = [
-      'You are a multilingual translator who specializes in understanding and translating slang terms and colloquialisms.',
-    ];
+    const systemPrompt = `You are an expert multilingual translation AI.
+Your task is to process the user's text based on the following rules:
 
-    if (!input.isSpeedBoosted) {
-      systemPromptLines.push('You also have expertise in emotional tone analysis.');
-    }
+1.  **TRANSLATION**: Translate the text into ${input.targetLanguage}. Ensure slang and colloquialisms are handled naturally.
 
-    systemPromptLines.push('\nYour task is to translate a piece of text.');
+2.  **LANGUAGE DETECTION**:
+    -   If the source language is 'auto', you MUST detect it. Populate 'detectedLanguageName' and 'detectedLanguageCode' in the output.
+    -   If the source language is specified as anything other than 'auto', trust it and do not perform detection. The detection fields can be null.
 
-    if (input.sourceLanguage === 'auto') {
-      systemPromptLines.push('You must first accurately detect the source language of the text.');
-    } else {
-      systemPromptLines.push(`The user has specified the source language is ${input.sourceLanguage}. You should trust this and proceed with translation.`);
-    }
+3.  **TONE ANALYSIS**:
+    -   If 'isSpeedBoosted' is true, you MUST skip this step. The 'toneAnalysis' and 'suggestions' fields must be empty or null.
+    -   If 'isSpeedBoosted' is false, you MUST analyze the emotional tone of the original text and populate 'toneAnalysis'.
+    -   If the tone could be improved, provide up to 3 alternative phrasings in 'suggestions'. Otherwise, the array must be empty.
 
-    systemPromptLines.push(`\nThen, translate the text into ${input.targetLanguage}, ensuring that any slang terms or colloquialisms are accurately translated with culturally relevant equivalents. The goal is to make the translation sound natural and understandable to a native speaker of the target language.`);
+You must strictly follow these rules and return the data in the specified JSON format.`;
 
-    if (!input.isSpeedBoosted) {
-      systemPromptLines.push('\nAfter that, analyze the emotional tone of the original source text. Describe it briefly in the \'toneAnalysis\' field.');
-      systemPromptLines.push('If the tone could be perceived as negative, ambiguous, or could be improved (e.g., made more polite, professional, or clearer), provide up to three alternative phrasings in the \'suggestions\' array. If the tone is positive and clear, you can leave the suggestions array empty.');
-    }
-
-    if (input.sourceLanguage === 'auto') {
-      systemPromptLines.push('\nIf you are auto-detecting, you must provide the full name and the most appropriate IETF language tag for the detected language in the output.');
-    }
-    
-    const systemPrompt = systemPromptLines.join(' ');
-    
     const { output } = await ai.generate({
+      model: 'googleai/gemini-2.0-flash',
       system: systemPrompt,
-      prompt: `Text: ${input.text}`,
+      prompt: input.text,
       output: {
+        format: 'json',
         schema: TranslateWithSlangOutputSchema,
       },
     });
