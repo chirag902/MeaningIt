@@ -220,6 +220,18 @@ export function Translator() {
     setIsSpeaking(false);
   };
 
+  const onImageTranslateSuccess = React.useCallback(() => {
+    if (!isPrivateMode) {
+      logImageTranslation();
+    }
+  }, [isPrivateMode, logImageTranslation]);
+
+  const onTutorMessageSent = React.useCallback(() => {
+    if (!isPrivateMode) {
+      logTutorMessage();
+    }
+  }, [isPrivateMode, logTutorMessage]);
+
   return (
     <Card className="w-full max-w-4xl border-0 shadow-2xl bg-card/60 backdrop-blur-xl">
       <CardHeader className="border-b p-4">
@@ -396,9 +408,7 @@ export function Translator() {
           <TabsContent value="image" className="p-6">
             <ImageTranslator
               targetLang={targetLang}
-              onTranslateSuccess={() => {
-                if (!isPrivateMode) logImageTranslation();
-              }}
+              onTranslateSuccess={onImageTranslateSuccess}
             />
           </TabsContent>
           <TabsContent value="live" className="p-6">
@@ -407,9 +417,7 @@ export function Translator() {
           <TabsContent value="tutor" className="p-6">
             <ChatbotTutor
               targetLang={targetLang}
-              onMessageSent={() => {
-                if (!isPrivateMode) logTutorMessage();
-              }}
+              onMessageSent={onTutorMessageSent}
               isPrivate={isPrivateMode}
             />
           </TabsContent>

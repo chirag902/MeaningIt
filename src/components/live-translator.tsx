@@ -22,7 +22,7 @@ type ConversationTurn = {
   audioUrl?: string;
 };
 
-export function LiveTranslator({lang1, lang2}: LiveTranslatorProps) {
+export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}: LiveTranslatorProps) {
   const [conversation, setConversation] = React.useState<ConversationTurn[]>([]);
   const [isListening, setIsListening] = React.useState<Speaker | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
@@ -227,4 +227,4 @@ export function LiveTranslator({lang1, lang2}: LiveTranslatorProps) {
       <audio ref={audioRef} className="hidden" />
     </div>
   );
-}
+});

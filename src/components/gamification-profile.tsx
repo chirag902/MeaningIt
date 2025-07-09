@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { useGamification, XP_PER_LEVEL } from '@/hooks/use-gamification';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Progress } from './ui/progress';
@@ -8,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/t
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
 
-export function GamificationProfile() {
+export const GamificationProfile = React.memo(function GamificationProfile() {
   const { stats, progress, unlockedBadges, lockedBadges } = useGamification();
 
   return (
@@ -124,4 +125,4 @@ export function GamificationProfile() {
       </Card>
     </div>
   );
-}
+});

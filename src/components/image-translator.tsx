@@ -14,7 +14,7 @@ interface ImageTranslatorProps {
   onTranslateSuccess: () => void;
 }
 
-export function ImageTranslator({ targetLang, onTranslateSuccess }: ImageTranslatorProps) {
+export const ImageTranslator = React.memo(function ImageTranslator({ targetLang, onTranslateSuccess }: ImageTranslatorProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = React.useState<boolean | null>(null);
@@ -130,4 +130,4 @@ export function ImageTranslator({ targetLang, onTranslateSuccess }: ImageTransla
       )}
     </div>
   );
-}
+});

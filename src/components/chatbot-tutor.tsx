@@ -24,7 +24,7 @@ type ConversationTurn = {
   text: string;
 };
 
-export function ChatbotTutor({targetLang, onMessageSent, isPrivate}: ChatbotTutorProps) {
+export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMessageSent, isPrivate}: ChatbotTutorProps) {
   const {toast} = useToast();
   const getLangName = (code: string) => languages.find(l => l.code === code)?.name || code;
 
@@ -269,4 +269,4 @@ export function ChatbotTutor({targetLang, onMessageSent, isPrivate}: ChatbotTuto
       <audio ref={audioRef} className="hidden" />
     </Card>
   );
-}
+});
