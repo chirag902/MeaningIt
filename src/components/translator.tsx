@@ -183,7 +183,7 @@ export function Translator() {
     if (!translatedText || isSpeaking || !audioRef.current) return;
     setIsSpeaking(true);
     
-    const result = await handleTextToSpeech({ text: translatedText, targetLanguage: targetLang });
+    const result = await handleTextToSpeech({ text: translatedText });
 
     if (result.success && result.audioDataUri) {
         audioRef.current.src = result.audioDataUri;

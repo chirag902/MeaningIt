@@ -14,7 +14,6 @@ import wav from 'wav';
 
 const TextToSpeechInputSchema = z.object({
   text: z.string().describe('The text to convert to speech.'),
-  targetLanguage: z.string().describe('The IETF language tag for the speech (e.g., "en-US", "es-ES"). This is used to select the correct voice model.'),
 });
 export type TextToSpeechInput = z.infer<typeof TextToSpeechInputSchema>;
 
@@ -33,17 +32,12 @@ const textToSpeechFlow = ai.defineFlow(
     inputSchema: TextToSpeechInputSchema,
     outputSchema: TextToSpeechOutputSchema,
   },
-  async ({text, targetLanguage}) => {
-    // The AI will automatically select the best voice based on the provided language code.
-    const speechConfig: any = {
-      languageCode: targetLanguage,
-    };
-
+  async ({text}) => {
+    // Let the AI model automatically detect the language from the text for robustness.
     const {media} = await ai.generate({
       model: googleAI.model('gemini-2.5-flash-preview-tts'),
       config: {
         responseModalities: ['AUDIO'],
-        speechConfig: speechConfig,
       },
       prompt: text,
     });
