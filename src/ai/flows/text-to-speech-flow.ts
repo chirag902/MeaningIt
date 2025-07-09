@@ -12,10 +12,10 @@ import {googleAI} from '@genkit-ai/googleai';
 import {z} from 'genkit';
 import wav from 'wav';
 
+// The `lang` parameter has been removed to allow the model to auto-detect the language from the text, which is more reliable.
 const TextToSpeechInputSchema = z.object({
   text: z.string().describe('The text to convert to speech.'),
-  lang: z.string().describe('The language of the text for voice selection.'),
-  voiceName: z.string().optional().describe('The specific pre-built voice name to use.'),
+  voiceName: z.string().optional().describe('The specific pre-built voice name to use. If not provided, an appropriate voice will be selected automatically.'),
 });
 export type TextToSpeechInput = z.infer<typeof TextToSpeechInputSchema>;
 
@@ -34,15 +34,15 @@ const textToSpeechFlow = ai.defineFlow(
     inputSchema: TextToSpeechInputSchema,
     outputSchema: TextToSpeechOutputSchema,
   },
-  async ({text, lang, voiceName}) => {
+  async ({text, voiceName}) => {
     const speechConfig: any = {};
 
+    // Only specify the voice if one is explicitly chosen by the user.
+    // Otherwise, let the model auto-detect the language and choose a suitable voice.
     if (voiceName) {
       speechConfig.voiceConfig = {
         prebuiltVoiceConfig: { voiceName: voiceName },
       };
-    } else {
-      speechConfig.languageCode = lang;
     }
 
     const {media} = await ai.generate({

@@ -180,26 +180,14 @@ export function Translator() {
   const handleListen = async () => {
     if (isListening) {
       recognitionRef.current?.stop();
-    } else {
-      if (recognitionRef.current) {
+    } else if (recognitionRef.current) {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              noiseSuppression: true,
-              echoCancellation: true,
-            },
-          });
-          setAudioStream(stream);
-          recognitionRef.current.start();
-        } catch (error) {
-          console.error('Microphone access error:', error);
-          toast({
-            variant: 'destructive',
-            title: 'Microphone Error',
-            description: 'Could not access the microphone. Please check your browser permissions.',
-          });
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: { noiseSuppression: true, echoCancellation: true } });
+            setAudioStream(stream);
+            recognitionRef.current.start();
+        } catch (err) {
+            toast({ variant: 'destructive', title: 'Microphone Error', description: 'Could not access the microphone. Please check your browser permissions.'});
         }
-      }
     }
   };
 
@@ -207,7 +195,7 @@ export function Translator() {
     if (!translatedText || isSpeaking || !audioRef.current) return;
     setIsSpeaking(true);
     
-    const result = await handleTextToSpeech({ text: translatedText, lang: targetLang, voiceName: selectedVoice });
+    const result = await handleTextToSpeech({ text: translatedText, voiceName: selectedVoice });
 
     if (result.success && result.audioDataUri) {
         audioRef.current.src = result.audioDataUri;

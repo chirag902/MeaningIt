@@ -88,7 +88,6 @@ export function LiveTranslator({ lang1, lang2 }: LiveTranslatorProps) {
         if (translationResult.success && translationResult.translation) {
             const ttsResult = await handleTextToSpeech({
                 text: translationResult.translation,
-                lang: targetLang
             });
 
             const newTurn: ConversationTurn = {

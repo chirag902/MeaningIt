@@ -153,7 +153,7 @@ export function ChatbotTutor({ targetLang, onMessageSent, isPrivate }: ChatbotTu
 
   const handleSpeak = async (text: string) => {
     if (!text || !audioRef.current) return;
-    const ttsResult = await handleTextToSpeech({ text, lang: targetLang });
+    const ttsResult = await handleTextToSpeech({ text });
     if (ttsResult.success && ttsResult.audioDataUri) {
       audioRef.current.src = ttsResult.audioDataUri;
       audioRef.current.play().catch(e => console.error("Audio playback failed", e));
