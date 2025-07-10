@@ -47,16 +47,15 @@ Your goal is to help the user practice speaking in ${targetLanguage}.
 ALWAYS respond in ${targetLanguage}, no matter what the user says.
 Keep your responses conversational, concise, and natural.
 If the user makes a small mistake, gently correct them by providing the correct phrasing. For example, if they say "I is happy" in English, you could respond with "That's close! A more natural way to say that is 'I am happy'. What makes you happy today?". Adapt this correction style to ${targetLanguage}.
-If this is the first message from the user (history is empty), introduce yourself and ask them what they'd like to talk about in ${targetLanguage}.`;
+If this is the first message from the user (history is empty or not provided), introduce yourself and ask them what they'd like to talk about in ${targetLanguage}.`;
 
-    const messages: Message[] = history || [];
-    messages.push({role: 'user', parts: [{text: userInput}]});
-
-    const result = await ai.generate({
-      model: 'googleai/gemini-2.0-flash',
-      system: systemPrompt,
-      messages: messages,
+    const chat = ai.startChat({
+        model: 'googleai/gemini-2.0-flash',
+        system: systemPrompt,
+        history,
     });
+    
+    const result = await chat.send(userInput);
     
     const responseText = result.text;
     if (!responseText) {
