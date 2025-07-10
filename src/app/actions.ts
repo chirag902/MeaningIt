@@ -6,7 +6,7 @@ import {
 } from '@/ai/flows/translate-with-slang';
 import {translateImage, type TranslateImageInput} from '@/ai/flows/translate-image-flow';
 import {textToSpeech, type TextToSpeechInput} from '@/ai/flows/text-to-speech-flow';
-import {getChatbotResponse, type ChatbotInput} from '@/ai/flows/chatbot-flow';
+import {getChatbotResponse} from '@/ai/flows/chatbot-flow';
 import {z} from 'zod';
 
 const TranslateSchema = z.object({
