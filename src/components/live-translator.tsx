@@ -1,13 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import {Mic, Loader2, User, Bot, Languages} from 'lucide-react';
-import {Button} from '@/components/ui/button';
-import {useToast} from '@/hooks/use-toast';
-import {handleTranslation, handleTextToSpeech} from '@/app/actions';
-import {languages} from '@/lib/languages';
-import {Card, CardContent} from './ui/card';
-import {VoiceVisualizer} from './voice-visualizer';
+import { Mic, Loader2, User, Bot, Languages } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { handleTranslation, handleTextToSpeech } from '@/app/actions';
+import { languages } from '@/lib/languages';
+import { Card, CardContent } from './ui/card';
+import { VoiceVisualizer } from './voice-visualizer';
 
 interface LiveTranslatorProps {
   lang1: string;
@@ -22,27 +22,32 @@ type ConversationTurn = {
   audioUrl?: string;
 };
 
-export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}: LiveTranslatorProps) {
+export const LiveTranslator = React.memo(function LiveTranslator({
+  lang1,
+  lang2,
+}: LiveTranslatorProps) {
   const [conversation, setConversation] = React.useState<ConversationTurn[]>([]);
   const [isListening, setIsListening] = React.useState<Speaker | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [audioStream, setAudioStream] = React.useState<MediaStream | null>(null);
 
-  const {toast} = useToast();
-  const recognitionRef = React.useRef<SpeechRecognition | null>(null);
+  const { toast } = useToast();
+  const recognitionRef = React.useRef<any>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const conversationEndRef = React.useRef<HTMLDivElement | null>(null);
 
   const stopAudioStream = React.useCallback(() => {
     if (audioStream) {
-      audioStream.getTracks().forEach(track => track.stop());
+      audioStream.getTracks().forEach((track) => track.stop());
       setAudioStream(null);
     }
   }, [audioStream]);
 
+  // Initialize SpeechRecognition once
   React.useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+    const SpeechRecognitionClass =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) {
       toast({
         variant: 'destructive',
         title: 'Not Supported',
@@ -50,17 +55,17 @@ export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}:
       });
       return;
     }
-    recognitionRef.current = new SpeechRecognition();
-    recognitionRef.current.continuous = false;
-    recognitionRef.current.interimResults = false;
 
-    recognitionRef.current.onstart = () => {};
-    recognitionRef.current.onend = () => {
+    const recognition = new SpeechRecognitionClass();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {};
+    recognition.onend = () => {
       setIsListening(null);
       stopAudioStream();
     };
-
-    recognitionRef.current.onerror = event => {
+    recognition.onerror = (event: any) => {
       toast({
         variant: 'destructive',
         title: 'Speech Error',
@@ -69,23 +74,27 @@ export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}:
       setIsListening(null);
       stopAudioStream();
     };
-
-    recognitionRef.current.onresult = async event => {
+    recognition.onresult = async (event: any) => {
       if (!isListening) return;
-
       const spokenText = event.results[0][0].transcript;
       setIsProcessing(true);
 
       const sourceLangCode = isListening === 'user1' ? lang1 : lang2;
       const targetLangCode = isListening === 'user1' ? lang2 : lang1;
+      const sourceLangName =
+        languages.find((l) => l.code === sourceLangCode)?.name || sourceLangCode;
+      const targetLangName =
+        languages.find((l) => l.code === targetLangCode)?.name || targetLangCode;
 
+      // 1) translate
       const translationResult = await handleTranslation({
         text: spokenText,
-        sourceLanguage: languages.find(l => l.code === sourceLangCode)?.name || 'English',
-        targetLanguage: languages.find(l => l.code === targetLangCode)?.name || 'Spanish',
+        sourceLanguage: sourceLangName,
+        targetLanguage: targetLangName,
       });
 
       if (translationResult.success && translationResult.translation) {
+        // 2) TTS
         const ttsResult = await handleTextToSpeech({
           text: translationResult.translation,
           languageCode: targetLangCode,
@@ -97,12 +106,11 @@ export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}:
           translatedText: translationResult.translation,
           audioUrl: ttsResult.success ? ttsResult.audioDataUri : undefined,
         };
-
-        setConversation(prev => [...prev, newTurn]);
+        setConversation((prev) => [...prev, newTurn]);
 
         if (ttsResult.success && ttsResult.audioDataUri && audioRef.current) {
           audioRef.current.src = ttsResult.audioDataUri;
-          audioRef.current.play().catch(e => console.error('Audio playback failed', e));
+          audioRef.current.play().catch((e) => console.error('Audio playback failed', e));
         }
       } else {
         toast({
@@ -111,14 +119,19 @@ export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}:
           description: translationResult.error || 'Could not translate the speech.',
         });
       }
+
       setIsProcessing(false);
     };
+
+    recognitionRef.current = recognition;
   }, [toast, lang1, lang2, isListening, stopAudioStream]);
 
+  // Scroll on new messages
   React.useEffect(() => {
-    conversationEndRef.current?.scrollIntoView({behavior: 'smooth'});
+    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
 
+  // Clean up on unmount
   React.useEffect(() => {
     return () => {
       stopAudioStream();
@@ -128,32 +141,29 @@ export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}:
   const handleToggleListen = async (speaker: Speaker) => {
     if (isListening) {
       recognitionRef.current?.stop();
-    } else {
-      if (recognitionRef.current) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              noiseSuppression: true,
-              echoCancellation: true,
-            },
-          });
-          setAudioStream(stream);
-          recognitionRef.current.lang = speaker === 'user1' ? lang1 : lang2;
-          recognitionRef.current.start();
-          setIsListening(speaker);
-        } catch (error) {
-          console.error('Microphone access error:', error);
-          toast({
-            variant: 'destructive',
-            title: 'Microphone Error',
-            description: 'Could not access the microphone. Please check your browser permissions.',
-          });
-        }
+    } else if (recognitionRef.current) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { noiseSuppression: true, echoCancellation: true },
+        });
+        setAudioStream(stream);
+        recognitionRef.current.lang = speaker === 'user1' ? lang1 : lang2;
+        recognitionRef.current.start();
+        setIsListening(speaker);
+      } catch (error) {
+        console.error('Microphone access error:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Microphone Error',
+          description:
+            'Could not access the microphone. Please check your browser permissions.',
+        });
       }
     }
   };
 
-  const getLangName = (code: string) => languages.find(l => l.code === code)?.name || code;
+  const getLangName = (code: string) =>
+    languages.find((l) => l.code === code)?.name || code;
 
   return (
     <div className="flex flex-col gap-4">
@@ -166,13 +176,21 @@ export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}:
           </div>
           <Button
             onClick={() => handleToggleListen('user1')}
-            disabled={isProcessing || (isListening !== null && isListening !== 'user1')}
+            disabled={
+              isProcessing || (isListening !== null && isListening !== 'user1')
+            }
             size="lg"
             className="rounded-full w-20 h-20"
           >
-            {isListening === 'user1' ? <VoiceVisualizer /> : <Mic className="h-8 w-8" />}
+            {isListening === 'user1' ? (
+              <VoiceVisualizer />
+            ) : (
+              <Mic className="h-8 w-8" />
+            )}
           </Button>
-          <p className="text-sm text-muted-foreground h-4">{isListening === 'user1' ? 'Listening...' : 'Tap to speak'}</p>
+          <p className="text-sm text-muted-foreground h-4">
+            {isListening === 'user1' ? 'Listening...' : 'Tap to speak'}
+          </p>
         </div>
 
         {/* Speaker 2 */}
@@ -183,17 +201,26 @@ export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}:
           </div>
           <Button
             onClick={() => handleToggleListen('user2')}
-            disabled={isProcessing || (isListening !== null && isListening !== 'user2')}
+            disabled={
+              isProcessing || (isListening !== null && isListening !== 'user2')
+            }
             size="lg"
             className="rounded-full w-20 h-20"
             variant="secondary"
           >
-            {isListening === 'user2' ? <VoiceVisualizer /> : <Mic className="h-8 w-8" />}
+            {isListening === 'user2' ? (
+              <VoiceVisualizer />
+            ) : (
+              <Mic className="h-8 w-8" />
+            )}
           </Button>
-          <p className="text-sm text-muted-foreground h-4">{isListening === 'user2' ? 'Listening...' : 'Tap to speak'}</p>
+          <p className="text-sm text-muted-foreground h-4">
+            {isListening === 'user2' ? 'Listening...' : 'Tap to speak'}
+          </p>
         </div>
       </div>
 
+      {/* Conversation history */}
       <div className="mt-4 space-y-4 max-h-[40vh] overflow-y-auto p-4 border rounded-lg">
         {isProcessing && conversation.length === 0 && (
           <div className="flex items-center justify-center p-8">
@@ -201,15 +228,27 @@ export const LiveTranslator = React.memo(function LiveTranslator({lang1, lang2}:
             <p className="ml-4">Translating...</p>
           </div>
         )}
-        {conversation.map((turn, index) => (
-          <Card key={index} className={turn.speaker === 'user1' ? 'bg-primary/10' : 'bg-accent/10'}>
+        {conversation.map((turn, idx) => (
+          <Card
+            key={idx}
+            className={
+              turn.speaker === 'user1' ? 'bg-primary/10' : 'bg-accent/10'
+            }
+          >
             <CardContent className="p-4">
               <p className="font-semibold text-sm text-muted-foreground">
-                {turn.speaker === 'user1' ? getLangName(lang1) : getLangName(lang2)} said:
+                {turn.speaker === 'user1'
+                  ? getLangName(lang1)
+                  : getLangName(lang2)}{' '}
+                said:
               </p>
               <p className="italic">"{turn.originalText}"</p>
               <p className="font-semibold text-sm text-muted-foreground mt-2">
-                Translated to {turn.speaker === 'user1' ? getLangName(lang2) : getLangName(lang1)}:
+                Translated to{' '}
+                {turn.speaker === 'user1'
+                  ? getLangName(lang2)
+                  : getLangName(lang1)}
+                :
               </p>
               <p className="text-lg font-bold">{turn.translatedText}</p>
             </CardContent>

@@ -14,16 +14,21 @@ interface ImageTranslatorProps {
   onTranslateSuccess: () => void;
 }
 
-export const ImageTranslator = React.memo(function ImageTranslator({ targetLang, onTranslateSuccess }: ImageTranslatorProps) {
+export const ImageTranslator = React.memo(function ImageTranslator({
+  targetLang,
+  onTranslateSuccess,
+}: ImageTranslatorProps) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
   const [hasCameraPermission, setHasCameraPermission] = React.useState<boolean | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [translatedText, setTranslatedText] = React.useState('');
+
   const { toast } = useToast();
 
   const getCameraPermission = React.useCallback(async () => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       toast({
         variant: 'destructive',
         title: 'Camera Not Supported',
@@ -34,7 +39,9 @@ export const ImageTranslator = React.memo(function ImageTranslator({ targetLang,
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
@@ -45,43 +52,46 @@ export const ImageTranslator = React.memo(function ImageTranslator({ targetLang,
       toast({
         variant: 'destructive',
         title: 'Camera Access Denied',
-        description: 'Please enable camera permissions in your browser settings to use this feature.',
+        description: 'Please enable camera permissions in your browser settings.',
       });
     }
   }, [toast]);
 
   React.useEffect(() => {
     getCameraPermission();
-
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
+      const stream = videoRef.current?.srcObject as MediaStream | undefined;
+      stream?.getTracks().forEach((track) => track.stop());
     };
   }, [getCameraPermission]);
 
   const handleCaptureAndTranslate = async () => {
     if (!videoRef.current || !canvasRef.current) return;
-    setIsProcessing(true);
-    setTranslatedText('');
 
+    setIsProcessing(true);
+    setTranslatedText(''); // clear previous
+
+    // Capture frame
     const video = videoRef.current;
     const canvas = canvasRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    context?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+    const ctx = canvas.getContext('2d');
+    ctx?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
+    // Get image data
     const photoDataUri = canvas.toDataURL('image/jpeg');
 
+    // Call your server action
     const result = await handleImageTranslation({
       photoDataUri,
-      targetLanguage: languages.find(l => l.code === targetLang)?.name || 'Spanish',
+      targetLanguage:
+        languages.find((l) => l.code === targetLang)?.name ?? 'Spanish',
     });
 
     if (result.success) {
-      setTranslatedText(result.translation);
+      // Guarantee a string
+      setTranslatedText(result.translation ?? '');
       onTranslateSuccess();
     } else {
       toast({
@@ -97,35 +107,55 @@ export const ImageTranslator = React.memo(function ImageTranslator({ targetLang,
   return (
     <div className="flex flex-col gap-4 items-center">
       <div className="relative w-full max-w-md aspect-video rounded-lg overflow-hidden border bg-muted">
-        <video ref={videoRef} className="w-full h-full object-cover" autoPlay playsInline muted />
+        <video
+          ref={videoRef}
+          className="w-full h-full object-cover"
+          autoPlay
+          playsInline
+          muted
+        />
         {hasCameraPermission === false && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 p-4 text-center">
-             <Alert variant="destructive" className="w-auto">
+            <Alert variant="destructive" className="w-auto">
               <AlertTitle>Camera Access Required</AlertTitle>
               <AlertDescription>
                 Please allow camera access to use this feature.
               </AlertDescription>
             </Alert>
             <Button onClick={getCameraPermission} className="mt-4">
-                Grant Permission
+              Grant Permission
             </Button>
           </div>
         )}
-         {isProcessing && (
-              <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-md">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+        {isProcessing && (
+          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-md">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
         )}
       </div>
+
       <canvas ref={canvasRef} className="hidden" />
-      <Button onClick={handleCaptureAndTranslate} disabled={isProcessing || !hasCameraPermission}>
-        {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-        Scan & Translate
+
+      <Button
+        onClick={handleCaptureAndTranslate}
+        disabled={isProcessing || hasCameraPermission !== true}
+      >
+        {isProcessing ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Camera className="mr-2 h-4 w-4" />
+        )}
+        Scan &amp; Translate
       </Button>
+
       {translatedText && (
         <div className="w-full pt-4">
-            <h3 className="font-semibold mb-2">Translated Text:</h3>
-            <Textarea value={translatedText} readOnly className="h-32 bg-muted/50" />
+          <h3 className="font-semibold mb-2">Translated Text:</h3>
+          <Textarea
+            value={translatedText}
+            readOnly
+            className="h-32 bg-muted/50"
+          />
         </div>
       )}
     </div>

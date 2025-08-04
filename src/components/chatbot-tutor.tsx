@@ -1,17 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import {Send, Mic, Loader2, Bot, User, Volume2} from 'lucide-react';
-import {Button} from '@/components/ui/button';
-import {Textarea} from '@/components/ui/textarea';
-import {useToast} from '@/hooks/use-toast';
-import {handleChatbot, handleTextToSpeech} from '@/app/actions';
-import {languages} from '@/lib/languages';
-import {Card} from './ui/card';
-import {ScrollArea} from './ui/scroll-area';
-import {Avatar, AvatarFallback} from './ui/avatar';
-import {VoiceVisualizer} from './voice-visualizer';
-import {cn} from '@/lib/utils';
+import { Send, Mic, Loader2, Bot, User, Volume2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { handleChatbot, handleTextToSpeech } from '@/app/actions';
+import { languages } from '@/lib/languages';
+import { Card } from './ui/card';
+import { ScrollArea } from './ui/scroll-area';
+import { Avatar, AvatarFallback } from './ui/avatar';
+import { VoiceVisualizer } from './voice-visualizer';
+import { cn } from '@/lib/utils';
 
 interface ChatbotTutorProps {
   targetLang: string;
@@ -24,9 +24,14 @@ type ConversationTurn = {
   text: string;
 };
 
-export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMessageSent, isPrivate}: ChatbotTutorProps) {
-  const {toast} = useToast();
-  const getLangName = (code: string) => languages.find(l => l.code === code)?.name || code;
+export const ChatbotTutor = React.memo(function ChatbotTutor({
+  targetLang,
+  onMessageSent,
+  isPrivate,
+}: ChatbotTutorProps) {
+  const { toast } = useToast();
+  const getLangName = (code: string) =>
+    languages.find((l) => l.code === code)?.name || code;
 
   const [conversation, setConversation] = React.useState<ConversationTurn[]>([]);
   const [input, setInput] = React.useState('');
@@ -34,13 +39,14 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
   const [isListening, setIsListening] = React.useState(false);
   const [audioStream, setAudioStream] = React.useState<MediaStream | null>(null);
 
-  const recognitionRef = React.useRef<SpeechRecognition | null>(null);
+  // Use 'any' for the SpeechRecognition instance
+  const recognitionRef = React.useRef<any>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const scrollAreaRef = React.useRef<HTMLDivElement | null>(null);
 
   const stopAudioStream = React.useCallback(() => {
     if (audioStream) {
-      audioStream.getTracks().forEach(track => track.stop());
+      audioStream.getTracks().forEach((track) => track.stop());
       setAudioStream(null);
     }
   }, [audioStream]);
@@ -50,10 +56,13 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
     const startConversation = async () => {
       setIsLoading(true);
       const targetLanguageName = getLangName(targetLang);
-      // Don't send a real prompt if in private mode, just set a default message.
+
       if (isPrivate) {
         setConversation([
-          {role: 'model', text: `Private session started in ${targetLanguageName}. History will not be saved.`},
+          {
+            role: 'model',
+            text: `Private session started in ${targetLanguageName}. History will not be saved.`,
+          },
         ]);
         setIsLoading(false);
         return;
@@ -64,8 +73,9 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
         targetLanguage: targetLanguageName,
         history: [],
       });
+
       if (result.success && result.response) {
-        setConversation([{role: 'model', text: result.response}]);
+        setConversation([{ role: 'model', text: result.response }]);
       } else {
         setConversation([
           {
@@ -81,18 +91,22 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
       }
       setIsLoading(false);
     };
+
     startConversation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetLang, isPrivate]);
 
+  // Auto-scroll on new messages
   React.useEffect(() => {
-    scrollAreaRef.current?.scrollIntoView({behavior: 'smooth', block: 'end'});
+    scrollAreaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [conversation]);
 
+  // SpeechRecognition setup
   React.useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      const recognition = new SpeechRecognition();
+    const SpeechRecognitionClass =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognitionClass) {
+      const recognition = new SpeechRecognitionClass();
       recognition.continuous = false;
       recognition.interimResults = false;
       recognition.onstart = () => setIsListening(true);
@@ -100,13 +114,17 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
         setIsListening(false);
         stopAudioStream();
       };
-      recognition.onresult = event => {
+      recognition.onresult = (event: any) => {
         const spokenText = event.results[0][0].transcript;
         setInput(spokenText);
         handleSendMessage(spokenText);
       };
-      recognition.onerror = event => {
-        toast({variant: 'destructive', title: 'Speech Error', description: `Error: ${event.error}`});
+      recognition.onerror = (event: any) => {
+        toast({
+          variant: 'destructive',
+          title: 'Speech Error',
+          description: `Error: ${event.error}`,
+        });
         setIsListening(false);
         stopAudioStream();
       };
@@ -118,7 +136,7 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
     if (text.trim() === '' || isLoading) return;
 
     onMessageSent();
-    const newUserMessage: ConversationTurn = {role: 'user', text};
+    const newUserMessage: ConversationTurn = { role: 'user', text };
     const currentConversation = [...conversation, newUserMessage];
     setConversation(currentConversation);
     setInput('');
@@ -131,7 +149,10 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
     });
 
     if (result.success && result.response) {
-      const newBotMessage: ConversationTurn = {role: 'model', text: result.response};
+      const newBotMessage: ConversationTurn = {
+        role: 'model',
+        text: result.response,
+      };
       setConversation([...currentConversation, newBotMessage]);
     } else {
       toast({
@@ -149,16 +170,17 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
     } else if (recognitionRef.current) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {noiseSuppression: true, echoCancellation: true},
+          audio: { noiseSuppression: true, echoCancellation: true },
         });
         setAudioStream(stream);
         recognitionRef.current.lang = targetLang;
         recognitionRef.current.start();
-      } catch (err) {
+      } catch (err: any) {
         toast({
           variant: 'destructive',
           title: 'Microphone Error',
-          description: 'Could not access the microphone. Please check your browser permissions.',
+          description:
+            'Could not access the microphone. Please check your browser permissions.',
         });
       }
     }
@@ -166,12 +188,18 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
 
   const handleSpeak = async (text: string) => {
     if (!text || !audioRef.current) return;
-    const ttsResult = await handleTextToSpeech({text, languageCode: targetLang});
+    const ttsResult = await handleTextToSpeech({ text, languageCode: targetLang });
     if (ttsResult.success && ttsResult.audioDataUri) {
       audioRef.current.src = ttsResult.audioDataUri;
-      audioRef.current.play().catch(e => console.error('Audio playback failed', e));
+      audioRef.current
+        .play()
+        .catch((e) => console.error('Audio playback failed', e));
     } else {
-      toast({variant: 'destructive', title: 'Playback Error', description: ttsResult.error});
+      toast({
+        variant: 'destructive',
+        title: 'Playback Error',
+        description: ttsResult.error,
+      });
     }
   };
 
@@ -180,7 +208,13 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-6">
           {conversation.map((turn, index) => (
-            <div key={index} className={cn('flex items-start gap-3', turn.role === 'user' ? 'justify-end' : '')}>
+            <div
+              key={index}
+              className={cn(
+                'flex items-start gap-3',
+                turn.role === 'user' ? 'justify-end' : ''
+              )}
+            >
               {turn.role === 'model' && (
                 <Avatar>
                   <AvatarFallback>
@@ -191,7 +225,9 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
               <div
                 className={cn(
                   'max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-lg relative group',
-                  turn.role === 'model' ? 'bg-muted' : 'bg-primary text-primary-foreground'
+                  turn.role === 'model'
+                    ? 'bg-muted'
+                    : 'bg-primary text-primary-foreground'
                 )}
               >
                 <p className="whitespace-pre-wrap">{turn.text}</p>
@@ -215,24 +251,26 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
               )}
             </div>
           ))}
-          {isLoading && conversation[conversation.length - 1]?.role === 'user' && (
-            <div className="flex items-start gap-3">
-              <Avatar>
-                <AvatarFallback>
-                  <Bot />
-                </AvatarFallback>
-              </Avatar>
-              <div className="bg-muted p-3 rounded-lg">
-                <Loader2 className="h-5 w-5 animate-spin" />
+          {isLoading &&
+            conversation[conversation.length - 1]?.role === 'user' && (
+              <div className="flex items-start gap-3">
+                <Avatar>
+                  <AvatarFallback>
+                    <Bot />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="bg-muted p-3 rounded-lg">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
         <div ref={scrollAreaRef} />
       </ScrollArea>
+
       <div className="p-4 border-t">
         <form
-          onSubmit={e => {
+          onSubmit={(e) => {
             e.preventDefault();
             handleSendMessage(input);
           }}
@@ -240,12 +278,14 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
         >
           <Textarea
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={(e) => setInput(e.target.value)}
             placeholder={
-              isPrivate ? `Private chat in ${getLangName(targetLang)}...` : `Practice your ${getLangName(targetLang)}...`
+              isPrivate
+                ? `Private chat in ${getLangName(targetLang)}...`
+                : `Practice your ${getLangName(targetLang)}...`
             }
             className="h-12 resize-none"
-            onKeyDown={e => {
+            onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 handleSendMessage(input);
@@ -259,10 +299,22 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({targetLang, onMess
             onClick={handleListen}
             disabled={!recognitionRef.current || isLoading}
           >
-            {isListening ? <VoiceVisualizer /> : <Mic className="h-5 w-5" />}
+            {isListening ? (
+              <VoiceVisualizer />
+            ) : (
+              <Mic className="h-5 w-5" />
+            )}
           </Button>
-          <Button type="submit" size="icon" disabled={isLoading || !input.trim()}>
-            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+          <Button
+            type="submit"
+            size="icon"
+            disabled={isLoading || !input.trim()}
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
           </Button>
         </form>
       </div>

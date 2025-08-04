@@ -1,5 +1,14 @@
 'use client';
 
+declare global{
+interface Window {
+  SpeechRecognition: any;
+  webkitSpeechRecognition: any;
+}
+
+}
+
+// 👇 Your imports (unchanged)
 import * as React from 'react';
 import {
   ArrowRightLeft,
@@ -28,6 +37,18 @@ import {Switch} from '@/components/ui/switch';
 import {Label} from '@/components/ui/label';
 import {useGamification} from '@/hooks/use-gamification';
 import {GamificationProfile} from './gamification-profile';
+// ✅ Fix SpeechRecognition typing issues
+type ISpeechRecognition = typeof window.SpeechRecognition extends undefined
+  ? typeof window.webkitSpeechRecognition
+  : typeof window.SpeechRecognition;
+
+declare global {
+  interface Window {
+    SpeechRecognition: ISpeechRecognition;
+    webkitSpeechRecognition: ISpeechRecognition;
+  }
+}
+
 
 export function Translator() {
   const [sourceLang, setSourceLang] = React.useState('auto');
@@ -45,7 +66,7 @@ export function Translator() {
   const [isPrivateMode, setIsPrivateMode] = React.useState(false);
 
   const {toast} = useToast();
-  const recognitionRef = React.useRef<SpeechRecognition | null>(null);
+  const recognitionRef = React.useRef<InstanceType<ISpeechRecognition> | null>(null);
   const debounceRef = React.useRef<NodeJS.Timeout | null>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
@@ -86,7 +107,8 @@ export function Translator() {
         isSpeedBoosted: isSpeedBoosted,
       });
       if (result.success) {
-        setTranslatedText(result.translation);
+        setTranslatedText(result.translation ?? '');
+
         setDetectedLangName(result.detectedLanguageName || null);
         setToneAnalysis(result.toneAnalysis || null);
         setToneSuggestions(result.suggestions || []);
@@ -141,11 +163,11 @@ export function Translator() {
         setIsListening(false);
         stopAudioStream();
       };
-      recognition.onresult = event => {
+      recognition.onresult = (event: { results: { transcript: any; }[][]; }) => {
         const newText = event.results[0][0].transcript;
         setSourceText(newText);
       };
-      recognition.onerror = event => {
+      recognition.onerror = (event: { error: any; }) => {
         toast({
           variant: 'destructive',
           title: 'Speech Error',
