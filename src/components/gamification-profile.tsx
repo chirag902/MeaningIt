@@ -8,6 +8,7 @@ import { Flame, Star, Languages, TrendingUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
+import { badges } from '@/lib/badges';
 
 export const GamificationProfile = React.memo(function GamificationProfile() {
   const { stats, progress, unlockedBadges, lockedBadges } = useGamification();
