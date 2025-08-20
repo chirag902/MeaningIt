@@ -58,6 +58,7 @@ export const useGamification = () => {
       const savedStatsRaw = localStorage.getItem('gamificationStats');
       if (savedStatsRaw) {
         const savedStats = JSON.parse(savedStatsRaw);
+        // Ensure all fields are present, falling back to initial stats
         const newStats = {
           ...getInitialStats(),
           ...savedStats,
@@ -66,10 +67,16 @@ export const useGamification = () => {
         setStats(newStats);
         prevStatsRef.current = newStats;
       } else {
-        prevStatsRef.current = getInitialStats();
+        // No saved stats, initialize
+        const initialStats = getInitialStats();
+        setStats(initialStats);
+        prevStatsRef.current = initialStats;
       }
     } catch (error) {
       console.error("Failed to load gamification stats from localStorage", error);
+      const initialStats = getInitialStats();
+      setStats(initialStats);
+      prevStatsRef.current = initialStats;
     }
   }, []);
   
@@ -83,12 +90,18 @@ export const useGamification = () => {
     
     // Check for level up toasts
     if (stats.level > prevStats.level) {
-        toast({ title: 'Level Up!', description: `Congratulations, you've reached Level ${stats.level}!` });
+        toast({ 
+            title: 'Level Up!', 
+            description: `Congratulations, you've reached Level ${stats.level}!` 
+        });
     }
 
     // Check for streak toasts
     if (stats.streak > prevStats.streak && stats.streak > 1) {
-        toast({ title: 'Streak Continued!', description: `You're on a ${stats.streak}-day streak! +${XP_FOR_STREAK} XP` });
+        toast({ 
+            title: 'Streak Continued!', 
+            description: `You're on a ${stats.streak}-day streak! +${XP_FOR_STREAK} XP` 
+        });
     }
 
     // Check for badge toasts
@@ -98,8 +111,10 @@ export const useGamification = () => {
 
         newBadges.forEach(badge => {
             const BadgeIcon = badge.icon;
-            // Don't double-toast for level up badge
-            if (badge.id === 'level_up') return;
+            
+            // Avoid double-toasting for the Level Up badge, as it has its own toast.
+            const isLevelUpBadge = badge.isUnlocked({ ...stats, level: stats.level }) && prevStats.level < stats.level;
+            if (isLevelUpBadge && stats.level > 1) return;
 
             toast({
                 title: 'Badge Unlocked!',
@@ -156,14 +171,15 @@ export const useGamification = () => {
         
         const updates = updateFn(prevStats);
         const totalXpGained = xpGained + streakBonusXp;
-        const xp = prevStats.xp + totalXpGained;
-        const level = Math.floor(xp / XP_PER_LEVEL) + 1;
+        const currentXp = prevStats.xp + totalXpGained;
+        const currentLevel = Math.floor(prevStats.xp / XP_PER_LEVEL) + 1;
+        const newLevel = Math.floor(currentXp / XP_PER_LEVEL) + 1;
         
         let newStats: GamificationStats = { 
             ...prevStats, 
             ...updates, 
-            xp, 
-            level,
+            xp: currentXp, 
+            level: newLevel,
             streak: newStreak,
             lastUsedDate: today.toISOString(), // Always update last used date on any action
         };

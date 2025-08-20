@@ -32,7 +32,7 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
         </CardHeader>
         <CardContent className="pt-2">
           <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-muted-foreground">Lvl {stats.level}</span>
+            <span className="text-sm font-medium text-muted-foreground w-12 text-center">Lvl {stats.level}</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -43,7 +43,7 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <span className="text-sm font-medium text-muted-foreground">Lvl {stats.level + 1}</span>
+            <span className="text-sm font-medium text-muted-foreground w-12 text-center">Lvl {stats.level + 1}</span>
           </div>
         </CardContent>
       </Card>
@@ -51,7 +51,7 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
       <div className="grid md:grid-cols-3 gap-4 text-center">
         <Card className="bg-card/60 backdrop-blur-sm border-0">
           <CardHeader className="items-center pb-2">
-            <Flame className="h-8 w-8 text-destructive" />
+            <Flame className="h-8 w-8 text-orange-500" />
             <CardTitle className="text-2xl">{stats.streak}</CardTitle>
             <CardDescription>Day Streak</CardDescription>
           </CardHeader>
@@ -66,7 +66,7 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
         <Card className="bg-card/60 backdrop-blur-sm border-0">
           <CardHeader className="items-center pb-2">
             <Star className="h-8 w-8 text-amber-500" />
-            <CardTitle className="text-2xl">{unlockedBadges.length}/{unlockedBadges.length + lockedBadges.length}</CardTitle>
+            <CardTitle className="text-2xl">{unlockedBadges.length}/{badges.length}</CardTitle>
             <CardDescription>Badges Unlocked</CardDescription>
           </CardHeader>
         </Card>
@@ -104,9 +104,9 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
                 <p className="text-sm text-muted-foreground">Start translating to earn badges!</p>
               )}
               
-              <Separator className="my-6" />
+              {lockedBadges.length > 0 && <Separator className="my-6" />}
 
-              <h3 className="font-semibold mb-4 text-muted-foreground">Locked</h3>
+              {lockedBadges.length > 0 && <h3 className="font-semibold mb-4 text-muted-foreground">Locked</h3>}
                <div className="flex flex-wrap gap-4">
                   {lockedBadges.map(badge => {
                       const BadgeIcon = badge.icon;

@@ -1,4 +1,4 @@
-import { Medal, MessageSquareQuote, Camera, Languages, Flame, TrendingUp } from 'lucide-react';
+import { Medal, MessageSquareQuote, Camera, Languages, Flame, TrendingUp, Award } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { GamificationStats } from '@/hooks/use-gamification';
 
@@ -22,14 +22,14 @@ export const badges: Badge[] = [
     id: 'text_translator_10',
     name: 'Word Weaver',
     description: 'Completed 10 text translations.',
-    icon: Medal,
+    icon: Award,
     isUnlocked: (stats) => stats.translations.text >= 10,
   },
   {
     id: 'text_translator_50',
     name: 'Lexicographer',
     description: 'Completed 50 text translations.',
-    icon: Medal,
+    icon: Award,
     isUnlocked: (stats) => stats.translations.text >= 50,
   },
   {
@@ -75,10 +75,17 @@ export const badges: Badge[] = [
     isUnlocked: (stats) => stats.streak >= 7,
   },
   {
-    id: 'level_up',
-    name: 'Level Up!',
-    description: 'Reached a new level.',
+    id: 'level_up_5',
+    name: 'Level 5!',
+    description: 'Reached level 5.',
     icon: TrendingUp,
-    isUnlocked: (stats) => stats.level > 1,
+    isUnlocked: (stats) => stats.level >= 5,
+  },
+    {
+    id: 'level_up_10',
+    name: 'Level 10!',
+    description: 'Reached level 10.',
+    icon: TrendingUp,
+    isUnlocked: (stats) => stats.level >= 10,
   },
 ];
