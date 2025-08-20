@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useGamification, XP_PER_LEVEL } from '@/hooks/use-gamification';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Progress } from './ui/progress';
-import { Flame, Star, Languages } from 'lucide-react';
+import { Flame, Star, Languages, TrendingUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
@@ -17,16 +17,22 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
       <Card className="shadow-lg border-0 bg-gradient-to-br from-primary/10 to-accent/10 backdrop-blur-sm">
         <CardHeader>
           <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Level {stats.level}</CardTitle>
-              <CardDescription>Your Progress</CardDescription>
+            <div className="flex items-center gap-4">
+               <div className="relative">
+                  <TrendingUp className="h-12 w-12 text-primary" />
+                  <span className="absolute -bottom-1 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground text-sm border-2 border-background">{stats.level}</span>
+               </div>
+               <div>
+                  <CardTitle>Level {stats.level}</CardTitle>
+                  <CardDescription>Your Progress</CardDescription>
+               </div>
             </div>
             <Badge variant="secondary" className="text-lg py-1 px-4">{stats.xp} XP</Badge>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-2">
           <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">Lvl {stats.level}</span>
+            <span className="text-sm font-medium text-muted-foreground">Lvl {stats.level}</span>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -37,7 +43,7 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <span className="text-sm font-medium">Lvl {stats.level + 1}</span>
+            <span className="text-sm font-medium text-muted-foreground">Lvl {stats.level + 1}</span>
           </div>
         </CardContent>
       </Card>
@@ -72,7 +78,7 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
               <CardDescription>Flex your achievements!</CardDescription>
           </CardHeader>
           <CardContent>
-              <h3 className="font-semibold mb-4">Unlocked</h3>
+              <h3 className="font-semibold mb-4 text-primary">Unlocked</h3>
               {unlockedBadges.length > 0 ? (
                 <div className="flex flex-wrap gap-4">
                   {unlockedBadges.map(badge => {
@@ -100,7 +106,7 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
               
               <Separator className="my-6" />
 
-              <h3 className="font-semibold mb-4">Locked</h3>
+              <h3 className="font-semibold mb-4 text-muted-foreground">Locked</h3>
                <div className="flex flex-wrap gap-4">
                   {lockedBadges.map(badge => {
                       const BadgeIcon = badge.icon;

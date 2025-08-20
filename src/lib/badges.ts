@@ -1,4 +1,4 @@
-import { Medal, MessageSquareQuote, Camera, Languages, Flame } from 'lucide-react';
+import { Medal, MessageSquareQuote, Camera, Languages, Flame, TrendingUp } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { GamificationStats } from '@/hooks/use-gamification';
 
@@ -73,5 +73,12 @@ export const badges: Badge[] = [
     description: 'Maintained a 7-day streak.',
     icon: Flame,
     isUnlocked: (stats) => stats.streak >= 7,
+  },
+  {
+    id: 'level_up',
+    name: 'Level Up!',
+    description: 'Reached a new level.',
+    icon: TrendingUp,
+    isUnlocked: (stats) => stats.level > 1,
   },
 ];

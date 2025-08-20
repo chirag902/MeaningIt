@@ -52,6 +52,7 @@ export const useGamification = () => {
   const { toast } = useToast();
   const prevStatsRef = useRef<GamificationStats>();
 
+  // Load stats from localStorage on initial mount
   useEffect(() => {
     try {
       const savedStatsRaw = localStorage.getItem('gamificationStats');
@@ -63,42 +64,15 @@ export const useGamification = () => {
           languagesUsed: new Set(savedStats.languagesUsed || []),
         };
         setStats(newStats);
-        prevStatsRef.current = newStats; // Initialize prevStats
+        prevStatsRef.current = newStats;
+      } else {
+        prevStatsRef.current = getInitialStats();
       }
     } catch (error) {
       console.error("Failed to load gamification stats from localStorage", error);
     }
   }, []);
   
-  const checkStreak = useCallback(() => {
-    setStats(prevStats => {
-        const today = new Date();
-        const lastUsed = prevStats.lastUsedDate ? new Date(prevStats.lastUsedDate) : null;
-
-        if (lastUsed && isSameDay(today, lastUsed)) {
-            return prevStats; // No change if already used today
-        }
-
-        let newStreak = prevStats.streak;
-        let newXp = prevStats.xp;
-
-        if (lastUsed && isYesterday(today, lastUsed)) {
-            newStreak++;
-            newXp += XP_FOR_STREAK;
-        } else {
-            newStreak = 1; // Reset or first time
-        }
-        
-        return { ...prevStats, streak: newStreak, xp: newXp, lastUsedDate: today.toISOString() };
-    });
-  }, []);
-  
-  // This effect runs on load to check the streak
-  useEffect(() => {
-    checkStreak();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only on mount
-
   // This effect handles firing toasts AFTER state has been updated
   useEffect(() => {
     const prevStats = prevStatsRef.current;
@@ -107,6 +81,11 @@ export const useGamification = () => {
         return;
     }
     
+    // Check for level up toasts
+    if (stats.level > prevStats.level) {
+        toast({ title: 'Level Up!', description: `Congratulations, you've reached Level ${stats.level}!` });
+    }
+
     // Check for streak toasts
     if (stats.streak > prevStats.streak && stats.streak > 1) {
         toast({ title: 'Streak Continued!', description: `You're on a ${stats.streak}-day streak! +${XP_FOR_STREAK} XP` });
@@ -119,6 +98,9 @@ export const useGamification = () => {
 
         newBadges.forEach(badge => {
             const BadgeIcon = badge.icon;
+            // Don't double-toast for level up badge
+            if (badge.id === 'level_up') return;
+
             toast({
                 title: 'Badge Unlocked!',
                 description: React.createElement(
@@ -134,7 +116,7 @@ export const useGamification = () => {
     prevStatsRef.current = stats;
   }, [stats, toast]);
 
-
+  // Save stats to localStorage whenever they change
   useEffect(() => {
     try {
       const statsToSave = {
@@ -146,7 +128,7 @@ export const useGamification = () => {
       console.error("Failed to save gamification stats to localStorage", error);
     }
   }, [stats]);
-
+  
   const checkForNewBadges = useCallback((currentStats: GamificationStats): Badge[] => {
     return badges.filter(badge => 
         !currentStats.unlockedBadgeIds.includes(badge.id) && badge.isUnlocked(currentStats)
@@ -155,11 +137,36 @@ export const useGamification = () => {
   
   const updateStats = useCallback((updateFn: (prevStats: GamificationStats) => Partial<GamificationStats>, xpGained: number) => {
     setStats(prevStats => {
+        // --- Streak Logic ---
+        const today = new Date();
+        const lastUsed = prevStats.lastUsedDate ? new Date(prevStats.lastUsedDate) : null;
+        let streakBonusXp = 0;
+        let newStreak = prevStats.streak;
+
+        if (!lastUsed || !isSameDay(today, lastUsed)) {
+            // This is the first action of the day
+            if (lastUsed && isYesterday(today, lastUsed)) {
+                newStreak++; // Continue streak
+                streakBonusXp = XP_FOR_STREAK;
+            } else {
+                newStreak = 1; // Reset or first time
+            }
+        }
+        // --- End Streak Logic ---
+        
         const updates = updateFn(prevStats);
-        const xp = prevStats.xp + xpGained;
+        const totalXpGained = xpGained + streakBonusXp;
+        const xp = prevStats.xp + totalXpGained;
         const level = Math.floor(xp / XP_PER_LEVEL) + 1;
         
-        let newStats: GamificationStats = { ...prevStats, ...updates, xp, level };
+        let newStats: GamificationStats = { 
+            ...prevStats, 
+            ...updates, 
+            xp, 
+            level,
+            streak: newStreak,
+            lastUsedDate: today.toISOString(), // Always update last used date on any action
+        };
         
         const newBadges = checkForNewBadges(newStats);
         if (newBadges.length > 0) {
