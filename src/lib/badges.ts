@@ -1,4 +1,4 @@
-import { Medal, MessageSquareQuote, Camera, Languages, Flame, TrendingUp, Award } from 'lucide-react';
+import { Medal, MessageSquareQuote, Camera, Languages, Flame, TrendingUp, Award, BookUser } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import type { GamificationStats } from '@/hooks/use-gamification';
 
@@ -29,7 +29,7 @@ export const badges: Badge[] = [
     id: 'text_translator_50',
     name: 'Lexicographer',
     description: 'Completed 50 text translations.',
-    icon: Award,
+    icon: BookUser,
     isUnlocked: (stats) => stats.translations.text >= 50,
   },
   {

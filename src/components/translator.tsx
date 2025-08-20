@@ -35,7 +35,7 @@ import {LiveTranslator} from './live-translator';
 import {ChatbotTutor} from './chatbot-tutor';
 import {Switch} from '@/components/ui/switch';
 import {Label} from '@/components/ui/label';
-import {useGamification} from '@/hooks/use-gamification';
+import {useGamification} from '@/hooks/use-gamification.tsx';
 import {GamificationProfile} from './gamification-profile';
 // ✅ Fix SpeechRecognition typing issues
 type ISpeechRecognition = typeof window.SpeechRecognition extends undefined

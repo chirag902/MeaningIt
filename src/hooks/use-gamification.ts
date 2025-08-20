@@ -48,152 +48,160 @@ const getInitialStats = (): GamificationStats => ({
 });
 
 export const useGamification = () => {
-  const [stats, setStats] = useState<GamificationStats>(getInitialStats());
+  const [stats, setStats] = useState<GamificationStats>(() => getInitialStats());
   const { toast } = useToast();
+  // Ref to store the previous stats to compare against for toasts
   const prevStatsRef = useRef<GamificationStats>();
+  const isInitialLoad = useRef(true);
+
 
   // Load stats from localStorage on initial mount
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     try {
       const savedStatsRaw = localStorage.getItem('gamificationStats');
       if (savedStatsRaw) {
         const savedStats = JSON.parse(savedStatsRaw);
-        // Ensure all fields are present, falling back to initial stats
-        const newStats = {
-          ...getInitialStats(),
-          ...savedStats,
-          languagesUsed: new Set(savedStats.languagesUsed || []),
+        // Create a full stats object, falling back to defaults if properties are missing
+        const loadedStats: GamificationStats = {
+          ...getInitialStats(), // Start with defaults
+          ...savedStats,         // Override with saved values
+          languagesUsed: new Set(savedStats.languagesUsed || []), // Ensure languagesUsed is a Set
         };
-        setStats(newStats);
-        prevStatsRef.current = newStats;
-      } else {
-        // No saved stats, initialize
-        const initialStats = getInitialStats();
-        setStats(initialStats);
-        prevStatsRef.current = initialStats;
+        setStats(loadedStats);
       }
     } catch (error) {
       console.error("Failed to load gamification stats from localStorage", error);
-      const initialStats = getInitialStats();
-      setStats(initialStats);
-      prevStatsRef.current = initialStats;
+      setStats(getInitialStats()); // Reset to default if loading fails
     }
   }, []);
-  
-  // This effect handles firing toasts AFTER state has been updated
+
+  // Effect for saving stats to localStorage whenever they change
   useEffect(() => {
-    const prevStats = prevStatsRef.current;
-    if (!prevStats) {
-        prevStatsRef.current = stats;
+    if (typeof window === 'undefined') return;
+
+    // Don't save on the very first render cycle before stats are loaded.
+    if (isInitialLoad.current) {
+        // Check if the loaded stats are different from the absolute initial state.
+        // If they are, it means we have successfully loaded from storage.
+        if (JSON.stringify(stats) !== JSON.stringify(getInitialStats())) {
+            isInitialLoad.current = false;
+        }
         return;
     }
     
-    // Check for level up toasts
-    if (stats.level > prevStats.level) {
-        toast({ 
-            title: 'Level Up!', 
-            description: `Congratulations, you've reached Level ${stats.level}!` 
-        });
-    }
-
-    // Check for streak toasts
-    if (stats.streak > prevStats.streak && stats.streak > 1) {
-        toast({ 
-            title: 'Streak Continued!', 
-            description: `You're on a ${stats.streak}-day streak! +${XP_FOR_STREAK} XP` 
-        });
-    }
-
-    // Check for badge toasts
-    if (stats.unlockedBadgeIds.length > prevStats.unlockedBadgeIds.length) {
-        const newBadgeIds = stats.unlockedBadgeIds.filter(id => !prevStats.unlockedBadgeIds.includes(id));
-        const newBadges = badges.filter(b => newBadgeIds.includes(b.id));
-
-        newBadges.forEach(badge => {
-            const BadgeIcon = badge.icon;
-            
-            // Avoid double-toasting for the Level Up badge, as it has its own toast.
-            const isLevelUpBadge = badge.isUnlocked({ ...stats, level: stats.level }) && prevStats.level < stats.level;
-            if (isLevelUpBadge && stats.level > 1) return;
-
-            toast({
-                title: 'Badge Unlocked!',
-                description: React.createElement(
-                    'div', { className: "flex items-center gap-2" },
-                    React.createElement(BadgeIcon, { className: "h-5 w-5 text-amber-500" }),
-                    React.createElement('span', { className: "font-semibold" }, badge.name)
-                )
-            });
-        });
-    }
-
-    // Update ref for next render
-    prevStatsRef.current = stats;
-  }, [stats, toast]);
-
-  // Save stats to localStorage whenever they change
-  useEffect(() => {
     try {
       const statsToSave = {
         ...stats,
-        languagesUsed: Array.from(stats.languagesUsed),
+        languagesUsed: Array.from(stats.languagesUsed), // Convert Set to Array for JSON
       };
       localStorage.setItem('gamificationStats', JSON.stringify(statsToSave));
     } catch (error) {
       console.error("Failed to save gamification stats to localStorage", error);
     }
   }, [stats]);
-  
-  const checkForNewBadges = useCallback((currentStats: GamificationStats): Badge[] => {
-    return badges.filter(badge => 
-        !currentStats.unlockedBadgeIds.includes(badge.id) && badge.isUnlocked(currentStats)
-    );
-  }, []);
-  
-  const updateStats = useCallback((updateFn: (prevStats: GamificationStats) => Partial<GamificationStats>, xpGained: number) => {
-    setStats(prevStats => {
+
+
+  // Effect for firing toasts when stats change
+  useEffect(() => {
+      const prevStats = prevStatsRef.current;
+      // Only run if we have previous stats to compare to
+      if (!prevStats) {
+          prevStatsRef.current = stats; // Set initial ref value
+          return;
+      }
+
+      // 1. Level Up Toast
+      if (stats.level > prevStats.level) {
+          toast({ 
+              title: 'Level Up!', 
+              description: `Congratulations, you've reached Level ${stats.level}!` 
+          });
+      }
+
+      // 2. Streak Toast
+      if (stats.streak > prevStats.streak && stats.streak > 1) {
+          toast({ 
+              title: 'Streak Continued!', 
+              description: `You're on a ${stats.streak}-day streak! +${XP_FOR_STREAK} XP` 
+          });
+      }
+
+      // 3. Badge Unlocked Toast
+      if (stats.unlockedBadgeIds.length > prevStats.unlockedBadgeIds.length) {
+          const newBadgeIds = stats.unlockedBadgeIds.filter(id => !prevStats.unlockedBadgeIds.includes(id));
+          const newBadges = badges.filter(b => newBadgeIds.includes(b.id));
+
+          newBadges.forEach(badge => {
+              // Avoid a "Level Up!" toast and a "Level 5!" badge toast at the same time
+              if (badge.id.startsWith('level_up') && stats.level > prevStats.level) return;
+
+              const BadgeIcon = badge.icon;
+              toast({
+                  title: 'Badge Unlocked!',
+                  description: (
+                      <div className="flex items-center gap-2">
+                          <BadgeIcon className="h-5 w-5 text-amber-500" />
+                          <span className="font-semibold">{badge.name}</span>
+                      </div>
+                  )
+              });
+          });
+      }
+
+      // Update ref for the next render
+      prevStatsRef.current = stats;
+  }, [stats, toast]);
+
+
+  const updateStats = useCallback((updateFn: (currentStats: GamificationStats) => Partial<GamificationStats>, xpGained: number) => {
+    setStats(currentStats => {
+        // Store the state BEFORE any changes
+        const prevStats = { ...currentStats };
+        
+        let newStats = { ...currentStats };
+
         // --- Streak Logic ---
         const today = new Date();
-        const lastUsed = prevStats.lastUsedDate ? new Date(prevStats.lastUsedDate) : null;
+        const lastUsed = newStats.lastUsedDate ? new Date(newStats.lastUsedDate) : null;
         let streakBonusXp = 0;
-        let newStreak = prevStats.streak;
 
         if (!lastUsed || !isSameDay(today, lastUsed)) {
-            // This is the first action of the day
+            // First action of a new day
             if (lastUsed && isYesterday(today, lastUsed)) {
-                newStreak++; // Continue streak
+                newStats.streak++; // Continue streak
                 streakBonusXp = XP_FOR_STREAK;
             } else {
-                newStreak = 1; // Reset or first time
+                newStats.streak = 1; // Reset or start streak
             }
+            newStats.lastUsedDate = today.toISOString();
         }
         // --- End Streak Logic ---
         
-        const updates = updateFn(prevStats);
+        // Apply the specific updates from the action (e.g., incrementing translation count)
+        const updates = updateFn(newStats);
+        newStats = { ...newStats, ...updates };
+
+        // --- XP and Level Logic ---
         const totalXpGained = xpGained + streakBonusXp;
-        const currentXp = prevStats.xp + totalXpGained;
-        const currentLevel = Math.floor(prevStats.xp / XP_PER_LEVEL) + 1;
-        const newLevel = Math.floor(currentXp / XP_PER_LEVEL) + 1;
+        newStats.xp += totalXpGained;
+        newStats.level = Math.floor(newStats.xp / XP_PER_LEVEL) + 1;
         
-        let newStats: GamificationStats = { 
-            ...prevStats, 
-            ...updates, 
-            xp: currentXp, 
-            level: newLevel,
-            streak: newStreak,
-            lastUsedDate: today.toISOString(), // Always update last used date on any action
-        };
+        // --- Badge Logic ---
+        const newlyUnlockedBadges = badges.filter(badge => 
+            !prevStats.unlockedBadgeIds.includes(badge.id) && badge.isUnlocked(newStats)
+        );
         
-        const newBadges = checkForNewBadges(newStats);
-        if (newBadges.length > 0) {
-            const newBadgeIds = newBadges.map(b => b.id);
+        if (newlyUnlockedBadges.length > 0) {
+            const newBadgeIds = newlyUnlockedBadges.map(b => b.id);
             newStats.unlockedBadgeIds = [...newStats.unlockedBadgeIds, ...newBadgeIds];
         }
 
+        // Return the final, updated state
         return newStats;
     });
-  }, [checkForNewBadges]);
-
+  }, []);
 
   const logTextTranslation = useCallback((targetLang: string) => {
     updateStats(prev => ({
