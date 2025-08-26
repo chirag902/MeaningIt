@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -190,7 +191,7 @@ export const useGamification = () => {
         
         // --- Badge Logic ---
         const newlyUnlockedBadges = badges.filter(badge => 
-            !prevStats.unlockedBadgeIds.includes(badge.id) && badge.isUnlocked(newStats)
+            !newStats.unlockedBadgeIds.includes(badge.id) && badge.isUnlocked(newStats)
         );
         
         if (newlyUnlockedBadges.length > 0) {
