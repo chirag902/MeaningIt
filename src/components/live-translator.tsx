@@ -35,6 +35,13 @@ export const LiveTranslator = React.memo(function LiveTranslator({
   const recognitionRef = React.useRef<any>(null);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const conversationEndRef = React.useRef<HTMLDivElement | null>(null);
+  
+  // Use a ref to hold the active speaker, avoiding stale closures in callbacks
+  const activeSpeakerRef = React.useRef<Speaker | null>(null);
+  React.useEffect(() => {
+    activeSpeakerRef.current = isListening;
+  }, [isListening]);
+
 
   const stopAudioStream = React.useCallback(() => {
     if (audioStream) {
@@ -61,10 +68,12 @@ export const LiveTranslator = React.memo(function LiveTranslator({
     recognition.interimResults = false;
 
     recognition.onstart = () => {};
+    
     recognition.onend = () => {
       setIsListening(null);
       stopAudioStream();
     };
+
     recognition.onerror = (event: any) => {
       toast({
         variant: 'destructive',
@@ -74,13 +83,16 @@ export const LiveTranslator = React.memo(function LiveTranslator({
       setIsListening(null);
       stopAudioStream();
     };
+
     recognition.onresult = async (event: any) => {
-      if (!isListening) return;
+      const currentSpeaker = activeSpeakerRef.current;
+      if (!currentSpeaker) return;
+
       const spokenText = event.results[0][0].transcript;
       setIsProcessing(true);
 
-      const sourceLangCode = isListening === 'user1' ? lang1 : lang2;
-      const targetLangCode = isListening === 'user1' ? lang2 : lang1;
+      const sourceLangCode = currentSpeaker === 'user1' ? lang1 : lang2;
+      const targetLangCode = currentSpeaker === 'user1' ? lang2 : lang1;
       const sourceLangName =
         languages.find((l) => l.code === sourceLangCode)?.name || sourceLangCode;
       const targetLangName =
@@ -101,7 +113,7 @@ export const LiveTranslator = React.memo(function LiveTranslator({
         });
 
         const newTurn: ConversationTurn = {
-          speaker: isListening,
+          speaker: currentSpeaker,
           originalText: spokenText,
           translatedText: translationResult.translation,
           audioUrl: ttsResult.success ? ttsResult.audioDataUri : undefined,
@@ -124,7 +136,17 @@ export const LiveTranslator = React.memo(function LiveTranslator({
     };
 
     recognitionRef.current = recognition;
-  }, [toast, lang1, lang2, isListening, stopAudioStream]);
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast, stopAudioStream]);
+  
+  // Separate effect for lang changes
+  React.useEffect(() => {
+     if (recognitionRef.current && isListening) {
+        recognitionRef.current.lang = isListening === 'user1' ? lang1 : lang2;
+     }
+  }, [lang1, lang2, isListening]);
+
 
   // Scroll on new messages
   React.useEffect(() => {
@@ -135,12 +157,16 @@ export const LiveTranslator = React.memo(function LiveTranslator({
   React.useEffect(() => {
     return () => {
       stopAudioStream();
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
     };
   }, [stopAudioStream]);
 
   const handleToggleListen = async (speaker: Speaker) => {
     if (isListening) {
       recognitionRef.current?.stop();
+      setIsListening(null); // Explicitly set to null
     } else if (recognitionRef.current) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -189,7 +215,7 @@ export const LiveTranslator = React.memo(function LiveTranslator({
             )}
           </Button>
           <p className="text-sm text-muted-foreground h-4">
-            {isListening === 'user1' ? 'Listening...' : 'Tap to speak'}
+            {isListening === 'user1' ? 'Listening...' : (lang1 === 'auto' ? 'Select a language' : 'Tap to speak')}
           </p>
         </div>
 
@@ -222,7 +248,7 @@ export const LiveTranslator = React.memo(function LiveTranslator({
 
       {/* Conversation history */}
       <div className="mt-4 space-y-4 max-h-[40vh] overflow-y-auto p-4 border rounded-lg">
-        {isProcessing && conversation.length === 0 && (
+        {isProcessing && (
           <div className="flex items-center justify-center p-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="ml-4">Translating...</p>
@@ -258,6 +284,7 @@ export const LiveTranslator = React.memo(function LiveTranslator({
           <div className="text-center text-muted-foreground p-8 flex flex-col items-center gap-4">
             <Languages className="h-12 w-12" />
             <p>Start a conversation by tapping one of the microphones above.</p>
+            {lang1 === 'auto' && <p className="text-sm text-destructive">Please select a specific language for the first speaker.</p>}
           </div>
         )}
         <div ref={conversationEndRef} />
