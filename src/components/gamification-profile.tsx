@@ -2,14 +2,14 @@
 'use client';
 
 import * as React from 'react';
-import { useGamification, XP_PER_LEVEL, badges } from '@/hooks/use-gamification.tsx';
+import { useGamification, XP_PER_LEVEL, badges } from '@/hooks/use-gamification';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Progress } from './ui/progress';
 import { Flame, Star, Languages, TrendingUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
-import type { Badge as BadgeType } from '@/hooks/use-gamification.tsx';
+import type { Badge as BadgeType } from '@/hooks/use-gamification';
 
 
 export const GamificationProfile = React.memo(function GamificationProfile() {
