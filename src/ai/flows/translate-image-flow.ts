@@ -9,6 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {googleAI} from '@genkit-ai/google-genai';
 import {z} from 'genkit';
 
 const TranslateImageInputSchema = z.object({
@@ -32,6 +33,7 @@ export async function translateImage(input: TranslateImageInput): Promise<Transl
 
 const prompt = ai.definePrompt({
   name: 'translateImagePrompt',
+  model: googleAI.model('gemini-1.5-flash-latest'),
   input: {schema: TranslateImageInputSchema},
   output: {schema: TranslateImageOutputSchema},
   prompt: `You are an expert at Optical Character Recognition (OCR) and multilingual translation.

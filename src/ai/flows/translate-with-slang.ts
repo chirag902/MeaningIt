@@ -56,7 +56,7 @@ Your task is to process the user's text based on the following rules:
 You must strictly follow these rules and return the data in the specified JSON format.`;
 
     const { output } = await ai.generate({
-      model: 'googleai/gemini-2.0-flash',
+      model: 'googleai/gemini-1.5-flash-latest',
       system: systemPrompt,
       prompt: input.text,
       output: {
