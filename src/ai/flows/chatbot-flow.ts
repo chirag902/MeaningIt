@@ -69,7 +69,7 @@ ${isFirstMessage
 `.trim();
 
     const result = await ai.generate({
-      model: 'googleai/gemini-2.0-flash',
+      model: 'googleai/gemini-1.5-flash-latest',
       system: systemPrompt,
       history: history,
       prompt: userInput,
