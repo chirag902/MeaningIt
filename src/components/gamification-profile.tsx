@@ -1,14 +1,16 @@
+
 'use client';
 
 import * as React from 'react';
-import { useGamification, XP_PER_LEVEL } from '@/hooks/use-gamification';
+import { useGamification, XP_PER_LEVEL, badges } from '@/hooks/use-gamification.tsx';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Progress } from './ui/progress';
 import { Flame, Star, Languages, TrendingUp } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
-import { badges } from '@/lib/badges';
+import type { Badge as BadgeType } from '@/hooks/use-gamification.tsx';
+
 
 export const GamificationProfile = React.memo(function GamificationProfile() {
   const { stats, progress, unlockedBadges, lockedBadges } = useGamification();
@@ -82,7 +84,7 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
               <h3 className="font-semibold mb-4 text-primary">Unlocked</h3>
               {unlockedBadges.length > 0 ? (
                 <div className="flex flex-wrap gap-4">
-                  {unlockedBadges.map(badge => {
+                  {unlockedBadges.map((badge: BadgeType) => {
                       const BadgeIcon = badge.icon;
                       return (
                           <TooltipProvider key={badge.id}>
@@ -109,7 +111,7 @@ export const GamificationProfile = React.memo(function GamificationProfile() {
 
               {lockedBadges.length > 0 && <h3 className="font-semibold mb-4 text-muted-foreground">Locked</h3>}
                <div className="flex flex-wrap gap-4">
-                  {lockedBadges.map(badge => {
+                  {lockedBadges.map((badge: BadgeType) => {
                       const BadgeIcon = badge.icon;
                       return (
                           <TooltipProvider key={badge.id}>
