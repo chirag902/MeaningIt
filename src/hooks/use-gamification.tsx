@@ -191,7 +191,7 @@ export const useGamification = () => {
         
         // --- Badge Logic ---
         const newlyUnlockedBadges = badges.filter(badge => 
-            !newStats.unlockedBadgeIds.includes(badge.id) && badge.isUnlocked(newStats)
+            !prevStats.unlockedBadgeIds.includes(badge.id) && badge.isUnlocked(newStats)
         );
         
         if (newlyUnlockedBadges.length > 0) {
