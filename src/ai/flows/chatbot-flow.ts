@@ -71,8 +71,10 @@ ${isFirstMessage
     const result = await ai.generate({
       model: 'googleai/gemini-1.5-flash-latest',
       system: systemPrompt,
-      history: history,
-      prompt: userInput,
+      prompt: {
+        history: history,
+        prompt: userInput
+      }
     });
 
       const responseText = result.text?.trim();
