@@ -44,23 +44,30 @@ const translateImageFlow = ai.defineFlow(
 2.  The source language of the text is unknown, you must detect it.
 3.  Translate the extracted text into ${targetLanguage}.
 4.  If no text is found in the image, return an empty string for the translation.
-5.  Return only the translated text as a JSON object with a "translation" key.`;
+5.  Return only the translated text as a JSON object with a "translation" key. For example: {"translation": "Your translated text here"}. You must only return the JSON object and nothing else.`;
 
-    const { output } = await ai.generate({
+    const result = await ai.generate({
       model: googleAI.model('gemini-1.5-flash'),
       prompt: [
             { text: prompt },
             { media: { url: photoDataUri } }
       ],
-      output: {
-        format: 'json',
-        schema: TranslateImageOutputSchema,
-      },
     });
 
+    const output = result.output();
     if (!output) {
       throw new Error('The model failed to generate a valid translation from the image. Please try again.');
     }
-    return output;
+    
+    try {
+      // The model sometimes returns the JSON wrapped in markdown, so we need to extract it.
+      const jsonString = output.text?.replace(/```json\n?/, '')?.replace(/```$/, '');
+      const parsed = JSON.parse(jsonString as string);
+      return TranslateImageOutputSchema.parse(parsed);
+    } catch (e) {
+      console.error("Failed to parse image translation response:", e);
+      console.error("Raw model output:", output.text);
+      throw new Error("The model returned an invalid format for the image translation. Please try again.");
+    }
   }
 );

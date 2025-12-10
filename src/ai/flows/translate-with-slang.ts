@@ -56,21 +56,27 @@ Here are the rules for populating the JSON object:
     -   If 'isSpeedBoosted' is false, you MUST analyze the emotional tone of the original text and populate 'toneAnalysis'.
     -   If the tone could be improved, provide up to 3 alternative phrasings in 'suggestions'. Otherwise, the array must be empty.
 
-You must strictly follow these rules and only return the JSON object.`;
+You must strictly follow these rules and only return the JSON object. Do not add any commentary or markdown formatting.`;
 
     const result = await ai.generate({
       model: googleAI.model('gemini-1.5-flash'),
       prompt: `${systemPrompt}\n\nTranslate this text: "${input.text}"`,
-      output: {
-        format: 'json',
-        schema: TranslateWithSlangOutputSchema
-      }
     });
     
-    const output = result.output;
+    const output = result.output();
     if (!output) {
       throw new Error('The model failed to generate a valid translation. Please try again.');
     }
-    return output;
+
+    try {
+       // The model sometimes returns the JSON wrapped in markdown, so we need to extract it.
+      const jsonString = output.text?.replace(/```json\n?/, '')?.replace(/```$/, '');
+      const parsed = JSON.parse(jsonString as string);
+      return TranslateWithSlangOutputSchema.parse(parsed);
+    } catch (e) {
+      console.error("Failed to parse translation response:", e);
+      console.error("Raw model output:", output.text);
+      throw new Error("The model returned an invalid format. Please try again.");
+    }
   }
 );
