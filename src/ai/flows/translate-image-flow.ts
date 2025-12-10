@@ -4,8 +4,8 @@
  * @fileOverview An AI agent that performs OCR on an image and translates the text.
  *
  * - translateImage - A function that handles the image translation process.
- * - TranslateImageInput - The input type for the translateImage function.
- * - TranslateImageOutput - The return type for the translateImage function.
+ * - TranslateImageInput - The input type for the translateImage function
+ * - TranslateImageOutput - The return type for the translateImage function
  */
 
 import {ai} from '@/ai/genkit';
@@ -31,30 +31,38 @@ export async function translateImage(input: TranslateImageInput): Promise<Transl
   return translateImageFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'translateImagePrompt',
-  model: googleAI.model('gemini-1.5-flash'),
-  input: {schema: TranslateImageInputSchema},
-  output: {schema: TranslateImageOutputSchema},
-  prompt: `You are an expert at Optical Character Recognition (OCR) and multilingual translation.
-  
-  1.  First, analyze the attached image and extract all visible text.
-  2.  The source language of the text is unknown, you must detect it.
-  3.  Translate the extracted text into {{targetLanguage}}.
-  4.  If no text is found in the image, return an empty string for the translation.
-  5.  Return only the translated text.
-  
-  Image: {{media url=photoDataUri}}`,
-});
-
 const translateImageFlow = ai.defineFlow(
   {
     name: 'translateImageFlow',
     inputSchema: TranslateImageInputSchema,
     outputSchema: TranslateImageOutputSchema,
   },
-  async input => {
-    const {output} = await prompt(input);
+  async ({ photoDataUri, targetLanguage }) => {
+    const prompt = `You are an expert at Optical Character Recognition (OCR) and multilingual translation.
+  
+1.  First, analyze the attached image and extract all visible text.
+2.  The source language of the text is unknown, you must detect it.
+3.  Translate the extracted text into ${targetLanguage}.
+4.  If no text is found in the image, return an empty string for the translation.
+5.  Return only the translated text.`;
+
+    const { output } = await ai.generate({
+      model: googleAI.model('gemini-1.5-flash'),
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { text: prompt },
+            { media: { url: photoDataUri } }
+          ],
+        },
+      ],
+      output: {
+        format: 'json',
+        schema: TranslateImageOutputSchema,
+      },
+    });
+
     if (!output) {
       throw new Error('The model failed to generate a valid translation from the image. Please try again.');
     }

@@ -72,10 +72,10 @@ ${isFirstMessage
 
     const result = await ai.generate({
       model: googleAI.model('gemini-1.5-flash'),
-      system: systemPrompt,
-      prompt: [
-        ...(history?.flatMap(h => h.parts.map(p => ({ text: p.text, role: h.role }))) ?? []),
-        { text: userInput },
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...(history?.map(h => ({ role: h.role, content: h.parts.map(p => p.text).join('') })) ?? []),
+        { role: 'user', content: userInput },
       ]
     });
 

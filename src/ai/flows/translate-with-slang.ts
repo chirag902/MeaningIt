@@ -9,6 +9,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {googleAI} from '@genkit-ai/google-genai';
 import {z} from 'genkit';
 
 const TranslateWithSlangInputSchema = z.object({
@@ -56,9 +57,11 @@ Your task is to process the user's text based on the following rules:
 You must strictly follow these rules and return the data in the specified JSON format.`;
 
     const { output } = await ai.generate({
-      model: 'googleai/gemini-1.5-flash',
-      system: systemPrompt,
-      prompt: input.text,
+      model: googleAI.model('gemini-1.5-flash'),
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: input.text }
+      ],
       output: {
         format: 'json',
         schema: TranslateWithSlangOutputSchema,
