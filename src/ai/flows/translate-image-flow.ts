@@ -25,7 +25,7 @@ export async function translateImage(input: TranslateImageInput): Promise<Transl
 5.  Return only the translated text as a JSON object with a "translation" key. For example: {"translation": "Your translated text here"}. You must only return the JSON object and nothing else.`;
 
     const response = await groq.chat.completions.create({
-      model: 'llama-3.1-vision-large',
+      model: 'llama-3.2-90b-vision-preview',
       messages: [
         {
           role: 'user',

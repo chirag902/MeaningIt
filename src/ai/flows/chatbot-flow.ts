@@ -45,7 +45,7 @@ ${isFirstMessage
   try {
     const chatCompletion = await groq.chat.completions.create({
       messages,
-      model: 'llama-3.1-70b-versatile',
+      model: 'llama-3.2-90b-text-preview',
       temperature: 0.7,
       max_tokens: 200,
     });
