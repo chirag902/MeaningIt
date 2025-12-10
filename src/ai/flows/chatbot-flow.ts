@@ -73,9 +73,9 @@ ${isFirstMessage
     const result = await ai.generate({
       model: googleAI.model('gemini-1.5-flash'),
       messages: [
-        { role: 'system', content: systemPrompt },
-        ...(history?.map(h => ({ role: h.role, content: h.parts.map(p => p.text).join('') })) ?? []),
-        { role: 'user', content: userInput },
+        { role: 'system', content: [{text: systemPrompt}] },
+        ...(history?.map(h => ({ role: h.role, content: h.parts.map(p => ({text: p.text})) })) ?? []),
+        { role: 'user', content: [{text: userInput}] },
       ]
     });
 

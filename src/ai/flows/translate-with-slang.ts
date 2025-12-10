@@ -59,8 +59,8 @@ You must strictly follow these rules and return the data in the specified JSON f
     const { output } = await ai.generate({
       model: googleAI.model('gemini-1.5-flash'),
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: input.text }
+        { role: 'system', content: [{ text: systemPrompt }] },
+        { role: 'user', content: [{ text: input.text }] }
       ],
       output: {
         format: 'json',
