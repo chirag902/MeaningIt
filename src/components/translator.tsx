@@ -8,7 +8,6 @@ interface Window {
 
 }
 
-// 👇 Your imports (unchanged)
 import * as React from 'react';
 import {
   ArrowRightLeft,
@@ -26,7 +25,7 @@ import {Card, CardContent, CardHeader} from '@/components/ui/card';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Textarea} from '@/components/ui/textarea';
 import {languages} from '@/lib/languages';
-import {handleTranslation, handleTextToSpeech} from '@/app/actions';
+import {handleTranslation} from '@/app/actions';
 import {useToast} from '@/hooks/use-toast';
 import {VoiceVisualizer} from './voice-visualizer';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
@@ -37,7 +36,8 @@ import {Switch} from '@/components/ui/switch';
 import {Label} from '@/components/ui/label';
 import {useGamification} from '@/hooks/use-gamification';
 import {GamificationProfile} from './gamification-profile';
-// ✅ Fix SpeechRecognition typing issues
+import { useSpeak } from '@/hooks/use-speak';
+
 type ISpeechRecognition = typeof window.SpeechRecognition extends undefined
   ? typeof window.webkitSpeechRecognition
   : typeof window.SpeechRecognition;
@@ -58,7 +58,6 @@ export function Translator() {
   const [detectedLangName, setDetectedLangName] = React.useState<string | null>(null);
   const [isTranslating, setIsTranslating] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
-  const [isSpeaking, setIsSpeaking] = React.useState(false);
   const [audioStream, setAudioStream] = React.useState<MediaStream | null>(null);
   const [toneAnalysis, setToneAnalysis] = React.useState<string | null>(null);
   const [toneSuggestions, setToneSuggestions] = React.useState<string[]>([]);
@@ -68,9 +67,9 @@ export function Translator() {
   const {toast} = useToast();
   const recognitionRef = React.useRef<InstanceType<ISpeechRecognition> | null>(null);
   const debounceRef = React.useRef<NodeJS.Timeout | null>(null);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   const {logTextTranslation, logImageTranslation, logTutorMessage} = useGamification();
+  const { speak, isSpeaking } = useSpeak();
 
   React.useEffect(() => {
     if (isPrivateMode) {
@@ -221,25 +220,6 @@ export function Translator() {
         });
       }
     }
-  };
-
-  const handleSpeak = async () => {
-    if (!translatedText || isSpeaking || !audioRef.current) return;
-    setIsSpeaking(true);
-
-    const result = await handleTextToSpeech({text: translatedText, languageCode: targetLang});
-
-    if (result.success && result.audioDataUri) {
-      audioRef.current.src = result.audioDataUri;
-      audioRef.current.play().catch(e => console.error('Audio playback failed', e));
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Playback Error',
-        description: result.error || 'Could not play audio.',
-      });
-    }
-    setIsSpeaking(false);
   };
 
   const onImageTranslateSuccess = React.useCallback(() => {
@@ -407,7 +387,7 @@ export function Translator() {
                     <Copy className="h-5 w-5" />
                   </Button>
                   <Button
-                    onClick={handleSpeak}
+                    onClick={() => speak({ text: translatedText, lang: targetLang })}
                     variant="outline"
                     size="icon"
                     disabled={!translatedText || isSpeaking}
@@ -448,7 +428,6 @@ export function Translator() {
           </TabsContent>
         </Tabs>
       </CardContent>
-      <audio ref={audioRef} onEnded={() => setIsSpeaking(false)} className="hidden" />
     </Card>
   );
 }

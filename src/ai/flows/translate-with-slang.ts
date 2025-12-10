@@ -1,46 +1,28 @@
 'use server';
 
-/**
- * @fileOverview A translation AI agent that translates with slang and colloquialisms.
- *
- * - translateWithSlang - A function that handles the translation process.
- * - TranslateWithSlangInput - The input type for the translateWithSlang function.
- * - TranslateWithSlangOutput - The return type for the translateWithSlang function.
- */
-
-import {ai} from '@/ai/genkit';
-import {googleAI} from '@genkit-ai/google-genai';
-import {z} from 'genkit';
+import { groq } from '@/ai/groq';
+import { z } from 'zod';
 
 const TranslateWithSlangInputSchema = z.object({
-  text: z.string().describe('The text to translate.'),
-  sourceLanguage: z.string().describe("The language of the text to translate. Can be 'auto' for auto-detection."),
-  targetLanguage: z.string().describe('The language to translate the text into.'),
-  isSpeedBoosted: z.boolean().optional().describe('If true, performs a faster translation by skipping tone analysis and suggestions.'),
+  text: z.string(),
+  sourceLanguage: z.string(),
+  targetLanguage: z.string(),
+  isSpeedBoosted: z.boolean().optional(),
 });
 export type TranslateWithSlangInput = z.infer<typeof TranslateWithSlangInputSchema>;
 
 const TranslateWithSlangOutputSchema = z.object({
-  translation: z.string().describe('The translated text, with slang terms accounted for.'),
-  detectedLanguageName: z.string().optional().describe("The full name of the detected source language (e.g., 'French') if auto-detection was used."),
-  detectedLanguageCode: z.string().optional().describe("The IETF language tag of the detected source language (e.g., 'fr-FR') if auto-detection was used."),
-  toneAnalysis: z.string().optional().describe("A brief analysis of the emotional tone of the source text (e.g., 'Formal', 'Casual', 'Urgent', 'Frustrated')."),
-  suggestions: z.array(z.string()).optional().describe("Alternative phrasings for the source text to improve the tone, if applicable. Provide up to 3 suggestions."),
+  translation: z.string(),
+  detectedLanguageName: z.string().optional(),
+  detectedLanguageCode: z.string().optional(),
+  toneAnalysis: z.string().optional(),
+  suggestions: z.array(z.string()).optional(),
 });
 export type TranslateWithSlangOutput = z.infer<typeof TranslateWithSlangOutputSchema>;
 
-export async function translateWithSlang(input: TranslateWithSlangInput): Promise<TranslateWithSlangOutput> {
-  return translateWithSlangFlow(input);
-}
 
-const translateWithSlangFlow = ai.defineFlow(
-  {
-    name: 'translateWithSlangFlow',
-    inputSchema: TranslateWithSlangInputSchema,
-    outputSchema: TranslateWithSlangOutputSchema,
-  },
-  async (input) => {
-    const systemPrompt = `You are an expert multilingual translation AI.
+export async function translateWithSlang(input: TranslateWithSlangInput): Promise<TranslateWithSlangOutput> {
+  const systemPrompt = `You are an expert multilingual translation AI.
 Your task is to process the user's text and return a JSON object that follows this Zod schema: ${TranslateWithSlangOutputSchema.toString()}.
 
 Here are the rules for populating the JSON object:
@@ -48,35 +30,38 @@ Here are the rules for populating the JSON object:
 1.  **TRANSLATION**: Translate the text into ${input.targetLanguage}. Ensure slang and colloquialisms are handled naturally.
 
 2.  **LANGUAGE DETECTION**:
-    -   If the source language is 'auto', you MUST detect it. Populate 'detectedLanguageName' and 'detectedLanguageCode' in the output.
+    -   If the source language is 'auto', you MUST detect it. Populate 'detectedLanguageName' (e.g., 'French') and 'detectedLanguageCode' (e.g., 'fr-FR') in the output.
     -   If the source language is specified as anything other than 'auto', trust it and do not perform detection. The detection fields can be null.
 
 3.  **TONE ANALYSIS**:
     -   If 'isSpeedBoosted' is true, you MUST skip this step. The 'toneAnalysis' and 'suggestions' fields must be empty or null.
-    -   If 'isSpeedBoosted' is false, you MUST analyze the emotional tone of the original text and populate 'toneAnalysis'.
+    -   If 'isSpeedBoosted' is false, you MUST analyze the emotional tone of the original text (e.g., 'Formal', 'Casual', 'Urgent', 'Frustrated') and populate 'toneAnalysis'.
     -   If the tone could be improved, provide up to 3 alternative phrasings in 'suggestions'. Otherwise, the array must be empty.
 
 You must strictly follow these rules and only return the JSON object. Do not add any commentary or markdown formatting.`;
 
-    const result = await ai.generate({
-      model: googleAI.model('gemini-1.5-flash'),
-      prompt: `${systemPrompt}\n\nTranslate this text: "${input.text}"`,
+  try {
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Translate this text: "${input.text}"` },
+      ],
+      model: input.isSpeedBoosted ? 'llama-3.1-8b-instant' : 'llama-3.1-70b-versatile',
+      temperature: 0.5,
+      max_tokens: 1024,
+      response_format: { type: 'json_object' },
     });
-    
-    const output = result.output();
-    if (!output) {
-      throw new Error('The model failed to generate a valid translation. Please try again.');
-    }
 
-    try {
-       // The model sometimes returns the JSON wrapped in markdown, so we need to extract it.
-      const jsonString = output.text?.replace(/```json\n?/, '')?.replace(/```$/, '');
-      const parsed = JSON.parse(jsonString as string);
-      return TranslateWithSlangOutputSchema.parse(parsed);
-    } catch (e) {
-      console.error("Failed to parse translation response:", e);
-      console.error("Raw model output:", output.text);
-      throw new Error("The model returned an invalid format. Please try again.");
+    const output = chatCompletion.choices[0]?.message?.content;
+    if (!output) {
+      throw new Error('Groq did not return a response.');
     }
+    
+    const parsed = JSON.parse(output);
+    return TranslateWithSlangOutputSchema.parse(parsed);
+
+  } catch (error) {
+    console.error('[Groq Translation Error]', error);
+    throw new Error("The translation service failed to respond. Please try again.");
   }
-);
+}

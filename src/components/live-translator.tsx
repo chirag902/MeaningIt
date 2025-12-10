@@ -4,10 +4,12 @@ import * as React from 'react';
 import { Mic, Loader2, User, Bot, Languages } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { handleTranslation, handleTextToSpeech } from '@/app/actions';
+import { handleTranslation } from '@/app/actions';
 import { languages } from '@/lib/languages';
 import { Card, CardContent } from './ui/card';
 import { VoiceVisualizer } from './voice-visualizer';
+import { useSpeak } from '@/hooks/use-speak';
+
 
 interface LiveTranslatorProps {
   lang1: string;
@@ -19,7 +21,6 @@ type ConversationTurn = {
   speaker: Speaker;
   originalText: string;
   translatedText: string;
-  audioUrl?: string;
 };
 
 export const LiveTranslator = React.memo(function LiveTranslator({
@@ -33,8 +34,8 @@ export const LiveTranslator = React.memo(function LiveTranslator({
 
   const { toast } = useToast();
   const recognitionRef = React.useRef<any>(null);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const conversationEndRef = React.useRef<HTMLDivElement | null>(null);
+  const { speak } = useSpeak();
   
   // Use a ref to hold the active speaker, avoiding stale closures in callbacks
   const activeSpeakerRef = React.useRef<Speaker | null>(null);
@@ -103,27 +104,21 @@ export const LiveTranslator = React.memo(function LiveTranslator({
         text: spokenText,
         sourceLanguage: sourceLangName,
         targetLanguage: targetLangName,
+        isSpeedBoosted: true, // Use faster model for live
       });
 
       if (translationResult.success && translationResult.translation) {
-        // 2) TTS
-        const ttsResult = await handleTextToSpeech({
-          text: translationResult.translation,
-          languageCode: targetLangCode,
-        });
-
+        
         const newTurn: ConversationTurn = {
           speaker: currentSpeaker,
           originalText: spokenText,
           translatedText: translationResult.translation,
-          audioUrl: ttsResult.success ? ttsResult.audioDataUri : undefined,
         };
         setConversation((prev) => [...prev, newTurn]);
 
-        if (ttsResult.success && ttsResult.audioDataUri && audioRef.current) {
-          audioRef.current.src = ttsResult.audioDataUri;
-          audioRef.current.play().catch((e) => console.error('Audio playback failed', e));
-        }
+        // 2) TTS
+        speak({ text: translationResult.translation, lang: targetLangCode });
+
       } else {
         toast({
           variant: 'destructive',
@@ -138,7 +133,7 @@ export const LiveTranslator = React.memo(function LiveTranslator({
     recognitionRef.current = recognition;
     
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast, stopAudioStream]);
+  }, [toast, stopAudioStream, lang1, lang2, speak]);
   
   // Separate effect for lang changes
   React.useEffect(() => {
@@ -290,7 +285,6 @@ export const LiveTranslator = React.memo(function LiveTranslator({
         <div ref={conversationEndRef} />
       </div>
 
-      <audio ref={audioRef} className="hidden" />
     </div>
   );
 });

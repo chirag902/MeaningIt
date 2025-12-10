@@ -5,13 +5,15 @@ import { Send, Mic, Loader2, Bot, User, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { handleChatbot, handleTextToSpeech } from '@/app/actions';
+import { handleChatbot } from '@/app/actions';
 import { languages } from '@/lib/languages';
 import { Card } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
 import { Avatar, AvatarFallback } from './ui/avatar';
 import { VoiceVisualizer } from './voice-visualizer';
 import { cn } from '@/lib/utils';
+import { useSpeak } from '@/hooks/use-speak';
+
 
 interface ChatbotTutorProps {
   targetLang: string;
@@ -20,8 +22,8 @@ interface ChatbotTutorProps {
 }
 
 type ConversationTurn = {
-  role: 'user' | 'model';
-  text: string;
+  role: 'user' | 'assistant';
+  content: string;
 };
 
 export const ChatbotTutor = React.memo(function ChatbotTutor({
@@ -38,10 +40,11 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
   const [isLoading, setIsLoading] = React.useState(false);
   const [isListening, setIsListening] = React.useState(false);
   const [audioStream, setAudioStream] = React.useState<MediaStream | null>(null);
+  
+  const { speak, isSpeaking } = useSpeak();
 
   // Use 'any' for the SpeechRecognition instance
   const recognitionRef = React.useRef<any>(null);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const scrollAreaRef = React.useRef<HTMLDivElement | null>(null);
 
   const stopAudioStream = React.useCallback(() => {
@@ -60,8 +63,8 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
       if (isPrivate) {
         setConversation([
           {
-            role: 'model',
-            text: `Private session started in ${targetLanguageName}. History will not be saved.`,
+            role: 'assistant',
+            content: `Private session started in ${targetLanguageName}. History will not be saved.`,
           },
         ]);
         setIsLoading(false);
@@ -75,12 +78,12 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
       });
 
       if (result.success && result.response) {
-        setConversation([{ role: 'model', text: result.response }]);
+        setConversation([{ role: 'assistant', content: result.response }]);
       } else {
         setConversation([
           {
-            role: 'model',
-            text: `Hello! I am Kai, your language tutor for ${targetLanguageName}. What would you like to talk about today?`,
+            role: 'assistant',
+            content: `Hello! I am Kai, your language tutor for ${targetLanguageName}. What would you like to talk about today?`,
           },
         ]);
         toast({
@@ -136,7 +139,7 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
     if (text.trim() === '' || isLoading) return;
 
     onMessageSent();
-    const newUserMessage: ConversationTurn = { role: 'user', text };
+    const newUserMessage: ConversationTurn = { role: 'user', content: text };
     const currentConversation = [...conversation, newUserMessage];
     setConversation(currentConversation);
     setInput('');
@@ -150,8 +153,8 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
 
     if (result.success && result.response) {
       const newBotMessage: ConversationTurn = {
-        role: 'model',
-        text: result.response,
+        role: 'assistant',
+        content: result.response,
       };
       setConversation([...currentConversation, newBotMessage]);
     } else {
@@ -186,22 +189,6 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
     }
   };
 
-  const handleSpeak = async (text: string) => {
-    if (!text || !audioRef.current) return;
-    const ttsResult = await handleTextToSpeech({ text, languageCode: targetLang });
-    if (ttsResult.success && ttsResult.audioDataUri) {
-      audioRef.current.src = ttsResult.audioDataUri;
-      audioRef.current
-        .play()
-        .catch((e) => console.error('Audio playback failed', e));
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Playback Error',
-        description: ttsResult.error,
-      });
-    }
-  };
 
   return (
     <Card className="flex flex-col h-[65vh] w-full">
@@ -215,7 +202,7 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
                 turn.role === 'user' ? 'justify-end' : ''
               )}
             >
-              {turn.role === 'model' && (
+              {turn.role === 'assistant' && (
                 <Avatar>
                   <AvatarFallback>
                     <Bot />
@@ -225,18 +212,19 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
               <div
                 className={cn(
                   'max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-lg relative group',
-                  turn.role === 'model'
+                  turn.role === 'assistant'
                     ? 'bg-muted'
                     : 'bg-primary text-primary-foreground'
                 )}
               >
-                <p className="whitespace-pre-wrap">{turn.text}</p>
-                {turn.role === 'model' && (
+                <p className="whitespace-pre-wrap">{turn.content}</p>
+                {turn.role === 'assistant' && (
                   <Button
                     size="icon"
                     variant="ghost"
                     className="absolute -bottom-4 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleSpeak(turn.text)}
+                    onClick={() => speak({ text: turn.content, lang: targetLang })}
+                    disabled={isSpeaking}
                   >
                     <Volume2 className="h-4 w-4" />
                   </Button>
@@ -318,7 +306,6 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
           </Button>
         </form>
       </div>
-      <audio ref={audioRef} className="hidden" />
     </Card>
   );
 });
