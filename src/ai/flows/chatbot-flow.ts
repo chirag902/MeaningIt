@@ -71,7 +71,7 @@ ${isFirstMessage
 `.trim();
 
     const result = await ai.generate({
-      model: googleAI.model('gemini-1.5-flash-latest'),
+      model: googleAI.model('gemini-1.5-flash'),
       system: systemPrompt,
       prompt: [
         ...(history?.flatMap(h => h.parts.map(p => ({ text: p.text, role: h.role }))) ?? []),

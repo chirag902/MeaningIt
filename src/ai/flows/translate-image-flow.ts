@@ -33,7 +33,7 @@ export async function translateImage(input: TranslateImageInput): Promise<Transl
 
 const prompt = ai.definePrompt({
   name: 'translateImagePrompt',
-  model: googleAI.model('gemini-1.5-flash-latest'),
+  model: googleAI.model('gemini-1.5-flash'),
   input: {schema: TranslateImageInputSchema},
   output: {schema: TranslateImageOutputSchema},
   prompt: `You are an expert at Optical Character Recognition (OCR) and multilingual translation.
