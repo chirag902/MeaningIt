@@ -72,11 +72,11 @@ ${isFirstMessage
 
     const result = await ai.generate({
       model: googleAI.model('gemini-1.5-flash'),
+      system: systemPrompt,
       messages: [
-        { role: 'system', content: [{text: systemPrompt}] },
-        ...(history?.map(h => ({ role: h.role, content: h.parts.map(p => ({text: p.text})) })) ?? []),
-        { role: 'user', content: [{text: userInput}] },
-      ]
+        ...(history || []),
+        { role: 'user', content: [{ text: userInput }] },
+      ],
     });
 
     const responseText = result.text?.trim();

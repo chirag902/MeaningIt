@@ -41,7 +41,9 @@ const translateWithSlangFlow = ai.defineFlow(
   },
   async (input) => {
     const systemPrompt = `You are an expert multilingual translation AI.
-Your task is to process the user's text based on the following rules:
+Your task is to process the user's text and return a JSON object that follows this Zod schema: ${TranslateWithSlangOutputSchema.toString()}.
+
+Here are the rules for populating the JSON object:
 
 1.  **TRANSLATION**: Translate the text into ${input.targetLanguage}. Ensure slang and colloquialisms are handled naturally.
 
@@ -54,20 +56,18 @@ Your task is to process the user's text based on the following rules:
     -   If 'isSpeedBoosted' is false, you MUST analyze the emotional tone of the original text and populate 'toneAnalysis'.
     -   If the tone could be improved, provide up to 3 alternative phrasings in 'suggestions'. Otherwise, the array must be empty.
 
-You must strictly follow these rules and return the data in the specified JSON format.`;
+You must strictly follow these rules and only return the JSON object.`;
 
-    const { output } = await ai.generate({
+    const result = await ai.generate({
       model: googleAI.model('gemini-1.5-flash'),
-      messages: [
-        { role: 'system', content: [{ text: systemPrompt }] },
-        { role: 'user', content: [{ text: input.text }] }
-      ],
+      prompt: `${systemPrompt}\n\nTranslate this text: "${input.text}"`,
       output: {
         format: 'json',
-        schema: TranslateWithSlangOutputSchema,
-      },
+        schema: TranslateWithSlangOutputSchema
+      }
     });
-
+    
+    const output = result.output;
     if (!output) {
       throw new Error('The model failed to generate a valid translation. Please try again.');
     }

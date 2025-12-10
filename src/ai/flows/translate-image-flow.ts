@@ -44,18 +44,13 @@ const translateImageFlow = ai.defineFlow(
 2.  The source language of the text is unknown, you must detect it.
 3.  Translate the extracted text into ${targetLanguage}.
 4.  If no text is found in the image, return an empty string for the translation.
-5.  Return only the translated text.`;
+5.  Return only the translated text as a JSON object with a "translation" key.`;
 
     const { output } = await ai.generate({
       model: googleAI.model('gemini-1.5-flash'),
-      messages: [
-        {
-          role: 'user',
-          content: [
+      prompt: [
             { text: prompt },
             { media: { url: photoDataUri } }
-          ],
-        },
       ],
       output: {
         format: 'json',
