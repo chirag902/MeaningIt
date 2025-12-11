@@ -1,82 +1,61 @@
-// src/ai/flows/translate-image-flow.ts
 'use server';
+/**
+ * @fileoverview Implements the image translation feature using Google's Gemini model via Genkit.
+ *
+ * - translateImage - A function that handles the image-to-text translation process.
+ * - TranslateImageInput - The input type for the translateImage function.
+ * - TranslateImageOutput - The return type for the translateImage function.
+ */
 
-import Groq from "groq-sdk";
-import { z } from 'zod';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit/zod';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
+const GEMINI_VISION_MODEL = 'gemini-1.5-flash-latest';
 
+// Define the schema for the function's input.
 const TranslateImageInputSchema = z.object({
-  photoDataUri: z.string().min(1), // data:image/... base64
-  targetLanguage: z.string().min(2),
+  photoDataUri: z
+    .string()
+    .describe(
+      "A photo of text to be translated, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+    ),
+  targetLanguage: z.string().describe('The language to translate the text into.'),
 });
 export type TranslateImageInput = z.infer<typeof TranslateImageInputSchema>;
 
-
+// Define the schema for the function's output.
 const TranslateImageOutputSchema = z.object({
-  translation: z.string(),
+  translation: z.string().describe('The translated text from the image.'),
 });
 export type TranslateImageOutput = z.infer<typeof TranslateImageOutputSchema>;
 
-
-const VISION_MODEL = "llama-3.3-70b-vision";
-
+// Define the main function that will be called from the UI.
 export async function translateImage(input: TranslateImageInput): Promise<TranslateImageOutput> {
+  // Use a structured prompt to get a structured JSON output.
+  const { output } = await ai.generate({
+    model: GEMINI_VISION_MODEL,
+    prompt: [
+      {
+        text: `
+          You are an expert OCR + translation model.
 
-  const validated = TranslateImageInputSchema.parse(input);
+          Task:
+          1. Read all text inside the given image.
+          2. Detect the original language.
+          3. Translate the extracted text into ${input.targetLanguage}.
+          4. If no readable text exists, the translation should be an empty string.
+        `,
+      },
+      { media: { url: input.photoDataUri } },
+    ],
+    output: {
+      schema: TranslateImageOutputSchema,
+    },
+    config: {
+      temperature: 0.1, // Lower temperature for more predictable, factual output.
+    },
+  });
 
-  const systemPrompt = `
-You are an expert OCR + translation model.
-
-Task:
-1. Read all text inside the given image.
-2. Detect the original language.
-3. Translate the extracted text into ${validated.targetLanguage}.
-4. If no readable text exists → return {"translation": ""}
-
-Return ONLY a JSON object:
-{
-  "translation": "string"
-}
-`.trim();
-
-  try {
-    const completion = await groq.chat.completions.create({
-      model: VISION_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Extract and translate this image." },
-            {
-              type: "image_url",
-              image_url: { url: validated.photoDataUri },
-            },
-          ],
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 1024,
-      temperature: 0.2,
-    });
-
-    let output = completion.choices[0]?.message?.content;
-    if (!output) throw new Error("Groq returned empty OCR output.");
-
-    // Remove markdown wrappers if present
-    output = output.replace(/```json|```/g, "").trim();
-
-    const parsed = JSON.parse(output);
-
-    if (typeof parsed.translation !== "string") {
-      parsed.translation = "";
-    }
-
-    return TranslateImageOutputSchema.parse(parsed);
-
-  } catch (err) {
-    console.error("[Groq Vision/Translate Error]", err);
-    throw new Error("Image translation failed. Please try again.");
-  }
+  // Ensure the output is not null.
+  return output || { translation: '' };
 }
