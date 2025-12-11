@@ -1,19 +1,22 @@
-"use server";
+// src/ai/flows/chatbot-flow.ts
+'use server';
 
-import Groq from "groq-sdk";
-import { z } from "zod";
+import Groq from 'groq-sdk';
+import { z } from 'zod';
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || '' });
 
 const ChatbotInputSchema = z.object({
-  userInput: z.string(),
-  targetLanguage: z.string(),
-  history: z.array(
-    z.object({
-      role: z.enum(["user", "assistant"]),
-      content: z.string(),
-    })
-  ).optional(),
+  userInput: z.string().min(0),
+  targetLanguage: z.string().min(2),
+  history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string(),
+      })
+    )
+    .optional(),
 });
 export type ChatbotInput = z.infer<typeof ChatbotInputSchema>;
 
@@ -22,45 +25,44 @@ const ChatbotOutputSchema = z.object({
 });
 export type ChatbotOutput = z.infer<typeof ChatbotOutputSchema>;
 
+const DEFAULT_MODEL = process.env.GROQ_CHAT_MODEL || 'llama-3.3-70b-versatile';
+const MAX_TOKENS = Number(process.env.GROQ_CHAT_MAX_TOKENS || 400);
+
 export async function getChatbotResponse(input: ChatbotInput): Promise<ChatbotOutput> {
-  const isFirstMessage = !input.history || input.history.length === 0;
+  const validated = ChatbotInputSchema.parse(input);
 
   const systemPrompt = `
-You are Kai, a friendly, encouraging language tutor.
-Always respond ONLY in ${input.targetLanguage}.
-Keep responses short, natural, and conversational.
-If the user makes a mistake, gently correct it by giving the natural phrasing in ${input.targetLanguage}.
-${
-  isFirstMessage
-    ? `This is the user's first message. Introduce yourself warmly and ask what they want to talk about in ${input.targetLanguage}.`
-    : ""
-}
-`.trim();
+You are Kai, a friendly and encouraging language tutor.
+Always reply in ${validated.targetLanguage}. Do not switch languages.
+Be concise, natural, and helpful. If the user makes a small grammar or usage mistake,
+gently provide a correction and an alternative phrasing in the same language.
+Keep responses short and conversational.
+`;
 
-  const messages: any[] = [
-    { role: "system", content: systemPrompt },
-    ...(input.history || []),
-    { role: "user", content: input.userInput }
-  ];
+  const messages: any[] = [{ role: 'system', content: systemPrompt }];
+  if (validated.history?.length) messages.push(...validated.history);
+  messages.push({ role: 'user', content: validated.userInput });
 
   try {
     const completion = await groq.chat.completions.create({
-      model: "llama3-70b-8192",   // ⭐ STABLE, RECOMMENDED, NOT DECOMMISSIONED
+      model: process.env.GROQ_CHAT_MODEL || DEFAULT_MODEL,
       messages,
-      temperature: 0.7,
-      max_tokens: 250,
+      temperature: 0.5,
+      max_tokens: MAX_TOKENS,
     });
 
-    const response = completion.choices[0]?.message?.content || "";
-    if (!response) throw new Error("Groq returned no response");
+    const reply = completion.choices?.[0]?.message?.content;
+    if (!reply || typeof reply !== 'string') {
+      throw new Error('Empty or invalid response from model');
+    }
 
-    return { response };
-
+    return ChatbotOutputSchema.parse({ response: reply.trim() });
   } catch (err) {
-    console.error("[Groq Chatbot Error]", err);
-    return {
+    console.error('[Groq Chatbot Error]', err);
+    // graceful fallback message so client can show something reasonable
+    return ChatbotOutputSchema.parse({
       response:
-        "Sorry 😔, I couldn't process your request right now. Please try again shortly.",
-    };
+        "Sorry — I couldn't respond right now. Please try again in a moment.",
+    });
   }
 }
