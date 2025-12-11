@@ -46,7 +46,7 @@ You must strictly follow these rules and only return the JSON object. Do not add
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `Translate this text: "${input.text}"` },
       ],
-      model: input.isSpeedBoosted ? 'llama3-8b-8192' : 'llama3-8b-8192',
+      model: input.isSpeedBoosted ? 'llama-3.1-8b-instant' : 'llama-3.3-70b-versatile',
       temperature: 0.5,
       max_tokens: 1024,
       response_format: { type: 'json_object' },
