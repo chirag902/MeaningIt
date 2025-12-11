@@ -1,7 +1,9 @@
-'use server';
+"use server";
 
-import { groq } from '@/ai/groq';
-import { z } from 'zod';
+import Groq from "groq-sdk";
+import { z } from "zod";
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 const TranslateImageInputSchema = z.object({
   photoDataUri: z.string(),
@@ -14,48 +16,53 @@ const TranslateImageOutputSchema = z.object({
 });
 export type TranslateImageOutput = z.infer<typeof TranslateImageOutputSchema>;
 
-export async function translateImage(input: TranslateImageInput): Promise<TranslateImageOutput> {
-  try {
-    const prompt = `You are an expert at Optical Character Recognition (OCR) and multilingual translation.
-  
-1.  First, analyze the attached image and extract all visible text.
-2.  The source language of the text is unknown, you must detect it.
-3.  Translate the extracted text into ${input.targetLanguage}.
-4.  If no text is found in the image, return an empty string for the translation.
-5.  Return only the translated text as a JSON object with a "translation" key. For example: {"translation": "Your translated text here"}. You must only return the JSON object and nothing else.`;
+export async function translateImage(
+  input: TranslateImageInput
+): Promise<TranslateImageOutput> {
+  const prompt = `
+You are an expert OCR + translation AI.
 
-    const response = await groq.chat.completions.create({
-      model: 'llava-v1.5-7b-4096',
+Task:
+1. Read all visible text from the attached image.
+2. Detect the source language automatically.
+3. Translate the extracted text into ${input.targetLanguage}.
+4. If no text exists, return {"translation": ""}.
+5. Return ONLY a JSON object: {"translation": "text here"}. No markdown.
+`;
+
+  try {
+    const result = await groq.chat.completions.create({
+      model: "llama-3.2-90b-vision", // ⭐ CORRECT GROQ OCR MODEL
       messages: [
         {
-          role: 'user',
+          role: "user",
           content: [
-            { type: 'text', text: prompt },
+            { type: "text", text: prompt },
             {
-              type: 'image_url',
-              image_url: {
-                url: input.photoDataUri,
-              },
+              type: "image_url",
+              image_url: { url: input.photoDataUri },
             },
           ],
         },
       ],
       max_tokens: 1024,
+      temperature: 0.2,
     });
 
-    const output = response.choices[0]?.message?.content;
-    if (!output) {
-      throw new Error('The model failed to generate a valid translation from the image.');
-    }
-    
-    // The model sometimes returns the JSON wrapped in markdown, so we need to extract it.
-    const jsonString = output.replace(/```json\n?/, '').replace(/```$/, '');
-    const parsed = JSON.parse(jsonString as string);
-    return TranslateImageOutputSchema.parse(parsed);
+    const raw = result.choices[0]?.message?.content;
+    if (!raw) throw new Error("Model returned empty response.");
 
-  } catch (e: any) {
-    console.error("Failed to parse image translation response:", e);
-    console.error("Raw model output:", e.response?.choices[0]?.message?.content);
-    throw new Error("The model returned an invalid format for the image translation. Please try again.");
+    // Clean markdown
+    const jsonString = raw
+      .replace(/```json\n?/gi, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const parsed = JSON.parse(jsonString);
+
+    return TranslateImageOutputSchema.parse(parsed);
+  } catch (err: any) {
+    console.error("Failed to translate image:", err);
+    throw new Error("Image translation failed. Please try again.");
   }
 }

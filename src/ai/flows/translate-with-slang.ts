@@ -1,7 +1,9 @@
 'use server';
 
-import { groq } from '@/ai/groq';
-import { z } from 'zod';
+import Groq from "groq-sdk";
+import { z } from "zod";
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
 const TranslateWithSlangInputSchema = z.object({
   text: z.string(),
@@ -20,48 +22,44 @@ const TranslateWithSlangOutputSchema = z.object({
 });
 export type TranslateWithSlangOutput = z.infer<typeof TranslateWithSlangOutputSchema>;
 
+export async function translateWithSlang(
+  input: TranslateWithSlangInput
+): Promise<TranslateWithSlangOutput> {
 
-export async function translateWithSlang(input: TranslateWithSlangInput): Promise<TranslateWithSlangOutput> {
-  const systemPrompt = `You are an expert multilingual translation AI.
-Your task is to process the user's text and return a JSON object that follows this Zod schema: ${TranslateWithSlangOutputSchema.toString()}.
+  const model = input.isSpeedBoosted
+    ? "llama-3.1-8b-instant"
+    : "llama-3.3-70b-versatile";
 
-Here are the rules for populating the JSON object:
+  const systemPrompt = `
+You are an expert multilingual translation AI.
+Return output ONLY in this JSON format:
 
-1.  **TRANSLATION**: Translate the text into ${input.targetLanguage}. Ensure slang and colloquialisms are handled naturally.
+${TranslateWithSlangOutputSchema.toString()}
 
-2.  **LANGUAGE DETECTION**:
-    -   If the source language is 'auto', you MUST detect it. Populate 'detectedLanguageName' (e.g., 'French') and 'detectedLanguageCode' (e.g., 'fr-FR') in the output.
-    -   If the source language is specified as anything other than 'auto', trust it and do not perform detection. The detection fields can be null.
-
-3.  **TONE ANALYSIS**:
-    -   If 'isSpeedBoosted' is true, you MUST skip this step. The 'toneAnalysis' and 'suggestions' fields must be empty or null.
-    -   If 'isSpeedBoosted' is false, you MUST analyze the emotional tone of the original text (e.g., 'Formal', 'Casual', 'Urgent', 'Frustrated') and populate 'toneAnalysis'.
-    -   If the tone could be improved, provide up to 3 alternative phrasings in 'suggestions'. Otherwise, the array must be empty.
-
-You must strictly follow these rules and only return the JSON object. Do not add any commentary or markdown formatting.`;
+RULES:
+1. Translate to ${input.targetLanguage}.
+2. If sourceLanguage = "auto", detect it.
+3. If isSpeedBoosted = true → skip toneAnalysis + suggestions.
+`;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const completion = await groq.chat.completions.create({
+      model,
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Translate this text: "${input.text}"` },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: input.text }
       ],
-      model: input.isSpeedBoosted ? 'llama-3.1-8b-instant' : 'llama-3.3-70b-versatile',
+      response_format: { type: "json_object" },
       temperature: 0.5,
       max_tokens: 1024,
-      response_format: { type: 'json_object' },
     });
 
-    const output = chatCompletion.choices[0]?.message?.content;
-    if (!output) {
-      throw new Error('Groq did not return a response.');
-    }
-    
-    const parsed = JSON.parse(output);
-    return TranslateWithSlangOutputSchema.parse(parsed);
+    const output = completion.choices[0]?.message?.content;
+    if (!output) throw new Error("Empty response from Groq");
 
-  } catch (error) {
-    console.error('[Groq Translation Error]', error);
+    return TranslateWithSlangOutputSchema.parse(JSON.parse(output));
+  } catch (err) {
+    console.error("[Groq Translation Error]", err);
     throw new Error("The translation service failed to respond. Please try again.");
   }
 }
