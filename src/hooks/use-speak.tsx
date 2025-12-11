@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useToast } from './use-toast';
 import { handleTextToSpeech } from '@/app/actions';
+import React from 'react';
 
 interface SpeakProps {
   text: string;
