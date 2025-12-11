@@ -1,22 +1,11 @@
-
+// src/app/actions.ts
 'use server';
 
-import {
-  translateWithSlang,
-  type TranslateWithSlangOutput,
-} from '@/ai/flows/translate-with-slang';
-import {translateImage, type TranslateImageInput} from '@/ai/flows/translate-image-flow';
-import {getChatbotResponse, type ChatbotInput} from '@/ai/flows/chatbot-flow';
-import {z} from 'zod';
-
-// Define the input type here as it's no longer exported from the flow
-export interface TranslateWithSlangInput {
-  text: string;
-  sourceLanguage: string;
-  targetLanguage: string;
-  isSpeedBoosted?: boolean;
-}
-
+import { z } from 'zod';
+import { translateWithSlang, type TranslateWithSlangOutput } from '@/ai/flows/translate-with-slang';
+import { translateImage } from '@/ai/flows/translate-image-flow';
+import { getChatbotResponse } from '@/ai/flows/chatbot-flow';
+import { textToSpeech } from '@/ai/flows/text-to-speech';
 
 const TranslateSchema = z.object({
   text: z.string(),
@@ -24,30 +13,30 @@ const TranslateSchema = z.object({
   targetLanguage: z.string(),
   isSpeedBoosted: z.boolean().optional(),
 });
+export type TranslateWithSlangInput = z.infer<typeof TranslateSchema>;
 
 export async function handleTranslation(data: TranslateWithSlangInput) {
   const validation = TranslateSchema.safeParse(data);
   if (!validation.success) {
-    return {success: false, error: 'Invalid input.'};
+    return { success: false, error: 'Invalid translation input.' };
   }
-
-  if (data.text.trim().length === 0) {
-    return {success: true, translation: ''};
+  if (validation.data.text.trim().length === 0) {
+    return { success: true, translation: '' };
   }
 
   try {
-    const result = await translateWithSlang(validation.data);
+    const out: TranslateWithSlangOutput = await translateWithSlang(validation.data);
     return {
       success: true,
-      translation: result.translation,
-      detectedLanguageName: result.detectedLanguageName,
-      detectedLanguageCode: result.detectedLanguageCode,
-      toneAnalysis: result.toneAnalysis,
-      suggestions: result.suggestions,
+      translation: out.translation,
+      detectedLanguageName: out.detectedLanguageName,
+      detectedLanguageCode: out.detectedLanguageCode,
+      toneAnalysis: out.toneAnalysis,
+      suggestions: out.suggestions || [],
     };
-  } catch (error) {
-    console.error('Translation failed:', error);
-    return {success: false, error: 'Failed to translate. Please try again later.'};
+  } catch (err: any) {
+    console.error('[handleTranslation] error', err);
+    return { success: false, error: err?.message || 'Translation failed.' };
   }
 }
 
@@ -55,19 +44,20 @@ const TranslateImageSchema = z.object({
   photoDataUri: z.string(),
   targetLanguage: z.string(),
 });
+export type TranslateImageInput = z.infer<typeof TranslateImageSchema>;
 
 export async function handleImageTranslation(data: TranslateImageInput) {
   const validation = TranslateImageSchema.safeParse(data);
   if (!validation.success) {
-    return {success: false, error: 'Invalid input.'};
+    return { success: false, error: 'Invalid image translation input.' };
   }
 
   try {
-    const result = await translateImage(validation.data);
-    return {success: true, translation: result.translation};
-  } catch (error) {
-    console.error('Image translation failed:', error);
-    return {success: false, error: 'Failed to translate image. Please try again.'};
+    const out = await translateImage(validation.data);
+    return { success: true, translation: out.translation };
+  } catch (err: any) {
+    console.error('[handleImageTranslation] error', err);
+    return { success: false, error: err?.message || 'Image translation failed.' };
   }
 }
 
@@ -77,28 +67,44 @@ const ChatbotActionInputSchema = z.object({
   history: z
     .array(
       z.object({
-        role: z.enum(['user', 'assistant']),
+        role: z.enum(['user', 'assistant', 'system']),
         content: z.string(),
       })
     )
     .optional(),
 });
-
 export async function handleChatbot(data: z.infer<typeof ChatbotActionInputSchema>) {
   const validation = ChatbotActionInputSchema.safeParse(data);
   if (!validation.success) {
-    return {success: false, error: 'Invalid input.'};
+    return { success: false, error: 'Invalid chatbot input.' };
   }
-  
   try {
-    const result = await getChatbotResponse({
-      userInput: data.userInput,
-      targetLanguage: data.targetLanguage,
-      history: data.history,
-    });
-    return {success: true, response: result.response};
-  } catch (error) {
-    console.error('Chatbot failed:', error);
-    return {success: false, error: 'Chatbot failed to respond. Please try again.'};
+    const out = await getChatbotResponse(validation.data);
+    return { success: true, response: out.response };
+  } catch (err: any) {
+    console.error('[handleChatbot] error', err);
+    return { success: false, error: err?.message || 'Chatbot failed.' };
+  }
+}
+
+const TextToSpeechSchema = z.object({
+  text: z.string(),
+  languageCode: z.string().optional(),
+  voiceGender: z.enum(['MALE', 'FEMALE']).optional(),
+  voiceName: z.string().optional(),
+});
+
+export async function handleTextToSpeech(data: z.infer<typeof TextToSpeechSchema>) {
+  const validation = TextToSpeechSchema.safeParse(data);
+  if (!validation.success) {
+    return { success: false, error: 'Invalid TTS input.' };
+  }
+
+  try {
+    const out = await textToSpeech(validation.data);
+    return { success: true, audioDataUri: out.audioDataUri || null, ssml: out.ssml || null };
+  } catch (err: any) {
+    console.error('[handleTextToSpeech] error', err);
+    return { success: false, error: err?.message || 'TTS failed.' };
   }
 }
