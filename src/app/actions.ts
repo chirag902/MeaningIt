@@ -7,13 +7,18 @@ import { translateImage } from '@/ai/flows/translate-image-flow';
 import { getChatbotResponse } from '@/ai/flows/chatbot-flow';
 import { textToSpeech } from '@/ai/flows/text-to-speech';
 
+export type TranslateWithSlangInput = {
+  text: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  isSpeedBoosted?: boolean;
+};
 const TranslateSchema = z.object({
   text: z.string(),
   sourceLanguage: z.string(),
   targetLanguage: z.string(),
   isSpeedBoosted: z.boolean().optional(),
 });
-export type TranslateWithSlangInput = z.infer<typeof TranslateSchema>;
 
 export async function handleTranslation(data: TranslateWithSlangInput) {
   const validation = TranslateSchema.safeParse(data);

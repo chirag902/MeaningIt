@@ -3,12 +3,10 @@
  * @fileoverview Implements the image translation feature using Google's Gemini model via Genkit.
  *
  * - translateImage - A function that handles the image-to-text translation process.
- * - TranslateImageInput - The input type for the translateImage function.
- * - TranslateImageOutput - The return type for the translateImage function.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit/zod';
+import { z } from 'genkit';
 
 const GEMINI_VISION_MODEL = 'gemini-1.5-flash-latest';
 
@@ -17,7 +15,7 @@ const TranslateImageInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
-      "A photo of text to be translated, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A photo of text to be translated, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'"
     ),
   targetLanguage: z.string().describe('The language to translate the text into.'),
 });
