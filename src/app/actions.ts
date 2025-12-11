@@ -1,12 +1,22 @@
+
 'use server';
 
 import {
   translateWithSlang,
-  type TranslateWithSlangInput,
+  type TranslateWithSlangOutput,
 } from '@/ai/flows/translate-with-slang';
 import {translateImage, type TranslateImageInput} from '@/ai/flows/translate-image-flow';
 import {getChatbotResponse, type ChatbotInput} from '@/ai/flows/chatbot-flow';
 import {z} from 'zod';
+
+// Define the input type here as it's no longer exported from the flow
+export interface TranslateWithSlangInput {
+  text: string;
+  sourceLanguage: string;
+  targetLanguage: string;
+  isSpeedBoosted?: boolean;
+}
+
 
 const TranslateSchema = z.object({
   text: z.string(),
