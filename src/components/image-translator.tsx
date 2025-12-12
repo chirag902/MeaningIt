@@ -8,10 +8,30 @@ import { handleImageTranslation } from '@/app/actions';
 import { languages } from '@/lib/languages';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Textarea } from './ui/textarea';
+import { runClientOCR } from '@/lib/client-ocr';
 
 interface ImageTranslatorProps {
   targetLang: string;
   onTranslateSuccess: () => void;
+}
+
+async function translateTextWithGroq(text: string, targetLanguage: string) {
+  if (!text) return '';
+  try {
+    const response = await fetch('/api/groq-translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, targetLanguage }),
+    });
+    if (!response.ok) {
+      throw new Error('Translation API failed');
+    }
+    const result = await response.json();
+    return result.translation || '';
+  } catch (error) {
+    console.error('Groq fallback translation error:', error);
+    return 'Translation failed.';
+  }
 }
 
 export const ImageTranslator = React.memo(function ImageTranslator({
@@ -23,6 +43,7 @@ export const ImageTranslator = React.memo(function ImageTranslator({
 
   const [hasCameraPermission, setHasCameraPermission] = React.useState<boolean | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [processingMessage, setProcessingMessage] = React.useState('');
   const [translatedText, setTranslatedText] = React.useState('');
 
   const { toast } = useToast();
@@ -69,6 +90,7 @@ export const ImageTranslator = React.memo(function ImageTranslator({
     if (!videoRef.current || !canvasRef.current) return;
 
     setIsProcessing(true);
+    setProcessingMessage('Capturing & Translating...');
     setTranslatedText(''); // clear previous
 
     // Capture frame
@@ -81,18 +103,40 @@ export const ImageTranslator = React.memo(function ImageTranslator({
 
     // Get image data
     const photoDataUri = canvas.toDataURL('image/jpeg');
+    const targetLanguageName = languages.find((l) => l.code === targetLang)?.name ?? 'English';
 
-    // Call your server action
+    // Call server action
     const result = await handleImageTranslation({
       photoDataUri,
-      targetLanguage:
-        languages.find((l) => l.code === targetLang)?.name ?? 'Spanish',
+      targetLanguage: targetLanguageName,
     });
 
     if (result.success) {
-      // Guarantee a string
-      setTranslatedText(result.translation ?? '');
-      onTranslateSuccess();
+      if (result.translation === '__CLIENT_OCR_REQUIRED__') {
+        // Server OCR failed, start client-side fallback
+        setProcessingMessage('Server OCR failed. Trying on-device...');
+        const extractedText = await runClientOCR(photoDataUri);
+
+        if (!extractedText) {
+          toast({
+            variant: 'destructive',
+            title: 'OCR Failed',
+            description: 'Could not detect any text in the image.',
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        setProcessingMessage('Translating extracted text...');
+        const finalTranslation = await translateTextWithGroq(extractedText, targetLanguageName);
+        setTranslatedText(finalTranslation);
+        onTranslateSuccess();
+
+      } else {
+         // Server OCR and translation was successful
+        setTranslatedText(result.translation ?? '');
+        onTranslateSuccess();
+      }
     } else {
       toast({
         variant: 'destructive',
@@ -102,6 +146,7 @@ export const ImageTranslator = React.memo(function ImageTranslator({
     }
 
     setIsProcessing(false);
+    setProcessingMessage('');
   };
 
   return (
@@ -128,8 +173,9 @@ export const ImageTranslator = React.memo(function ImageTranslator({
           </div>
         )}
         {isProcessing && (
-          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center rounded-md">
+          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex flex-col items-center justify-center rounded-md text-center p-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            {processingMessage && <p className="mt-4 font-semibold">{processingMessage}</p>}
           </div>
         )}
       </div>

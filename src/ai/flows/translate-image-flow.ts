@@ -1,8 +1,8 @@
 "use server";
 
-import { z } from "zod";
 import Groq from "groq-sdk";
-import Tesseract from "tesseract.js";
+import tesseract from "node-tesseract-ocr";
+import { z } from "zod";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
 
@@ -16,41 +16,47 @@ export async function translateImage(input: {
   targetLanguage: string;
 }): Promise<TranslateImageOutput> {
   try {
-    // Remove base64 prefix
+    // Convert Data URI → Buffer
     const base64 = input.photoDataUri.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64, "base64");
 
-    // Convert to a buffer
-    const imgBuffer = Buffer.from(base64, "base64");
-
-    // OCR: Extract text using Tesseract (FREE)
-    const { data } = await Tesseract.recognize(imgBuffer, "eng"); // Can add multiple langs if needed
-    const extractedText = data.text.trim();
-
-    // If no text found
-    if (!extractedText) {
-      return { translation: "" };
+    // ----- PRIMARY OCR ENGINE (SERVER) -----
+    let extractedText = "";
+    try {
+      const ocrText = await tesseract.recognize(buffer, {
+        lang: "eng+hin+spa+fra+deu+ita+jpn+kor", 
+      });
+      extractedText = ocrText.trim();
+    } catch (err) {
+      console.error("[Server OCR Failed → Will fallback later]", err);
     }
 
-    // Now translate using Groq
+    // If server OCR reads nothing → FORCE client fallback
+    if (!extractedText) {
+      return { translation: "__CLIENT_OCR_REQUIRED__" };
+    }
+
+    // ----- GROQ TRANSLATION -----
     const systemPrompt = `
-You are a translation model.
-Translate the following extracted OCR text into ${input.targetLanguage}.
-Return ONLY the translated text.
-`;
+Translate the following extracted text into ${input.targetLanguage}.
+Return ONLY the translated text. No extra formatting.
+
+Text:
+${extractedText}
+    `.trim();
 
     const completion = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: extractedText },
+        { role: "system", content: systemPrompt }
       ],
-      temperature: 0.4,
       max_tokens: 512,
+      temperature: 0.4,
     });
 
-    const translation = completion.choices[0]?.message?.content || "";
+    const translated = completion.choices?.[0]?.message?.content?.trim() || "";
 
-    return { translation };
+    return { translation: translated };
   } catch (err) {
     console.error("[Optimized Image Translation Error]", err);
     throw new Error("Image translation failed. Please try again.");

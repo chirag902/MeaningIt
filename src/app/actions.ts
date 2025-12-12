@@ -44,7 +44,6 @@ export async function handleTranslation(data: TranslateWithSlangInput) {
     return { success: false, error: err?.message || 'Translation failed.' };
   }
 }
-
 const TranslateImageSchema = z.object({
   photoDataUri: z.string(),
   targetLanguage: z.string(),
@@ -54,17 +53,22 @@ export type TranslateImageInput = z.infer<typeof TranslateImageSchema>;
 export async function handleImageTranslation(data: TranslateImageInput) {
   const validation = TranslateImageSchema.safeParse(data);
   if (!validation.success) {
-    return { success: false, error: 'Invalid image translation input.' };
+    return { success: false, error: "Invalid image translation input." };
   }
 
   try {
     const out = await translateImage(validation.data);
-    return { success: true, translation: out.translation };
+
+    return {
+      success: true,
+      translation: out.translation,
+    };
   } catch (err: any) {
-    console.error('[handleImageTranslation] error', err);
-    return { success: false, error: err?.message || 'Image translation failed.' };
+    console.error("[handleImageTranslation] error", err);
+    return { success: false, error: err?.message || "Image translation failed." };
   }
 }
+
 
 const ChatbotActionInputSchema = z.object({
   userInput: z.string(),
