@@ -1,59 +1,101 @@
 'use server';
-/**
- * @fileoverview Implements the image translation feature using Google's Gemini model via Genkit.
- *
- * - translateImage - A function that handles the image-to-text translation process.
- */
 
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { ImageAnnotatorClient } from "@google-cloud/vision";
+import Groq from "groq-sdk";
+import { z } from "zod";
 
-const GEMINI_VISION_MODEL = 'gemini-1.5-flash-latest';
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
+const visionClient = new ImageAnnotatorClient();
 
-// Define the schema for the function's input.
-const TranslateImageInputSchema = z.object({
-  photoDataUri: z
-    .string()
-    .describe(
-      "A photo of text to be translated, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'"
-    ),
-  targetLanguage: z.string().describe('The language to translate the text into.'),
-});
-export type TranslateImageInput = z.infer<typeof TranslateImageInputSchema>;
-
-// Define the schema for the function's output.
+// Zod schema for validated output
 const TranslateImageOutputSchema = z.object({
-  translation: z.string().describe('The translated text from the image.'),
+  translation: z.string(),
+  detectedLanguage: z.string().optional(),
+  rawText: z.string().optional(),
 });
 export type TranslateImageOutput = z.infer<typeof TranslateImageOutputSchema>;
 
-// Define the main function that will be called from the UI.
-export async function translateImage(input: TranslateImageInput): Promise<TranslateImageOutput> {
-  // Use a structured prompt to get a structured JSON output.
-  const { output } = await ai.generate({
-    model: GEMINI_VISION_MODEL,
-    prompt: [
-      {
-        text: `
-          You are an expert OCR + translation model.
+export async function translateImage(input: {
+  photoDataUri: string;
+  targetLanguage: string;
+}): Promise<TranslateImageOutput> {
+  try {
+    // 🔹 Step 1: Parse Base64
+    const base64Data = input.photoDataUri.replace(/^data:image\/\w+;base64,/, "");
+    const imageBuffer = Buffer.from(base64Data, "base64");
 
-          Task:
-          1. Read all text inside the given image.
-          2. Detect the original language.
-          3. Translate the extracted text into ${input.targetLanguage}.
-          4. If no readable text exists, the translation should be an empty string.
-        `,
-      },
-      { media: { url: input.photoDataUri } },
-    ],
-    output: {
-      schema: TranslateImageOutputSchema,
-    },
-    config: {
-      temperature: 0.1, // Lower temperature for more predictable, factual output.
-    },
-  });
+    // 🔹 Step 2: OCR using Google Cloud Vision
+    const [result] = await visionClient.textDetection({
+      image: { content: imageBuffer },
+    });
 
-  // Ensure the output is not null.
-  return output || { translation: '' };
+    const rawText = result.fullTextAnnotation?.text?.trim() || "";
+
+    // No text → return empty translation
+    if (!rawText) {
+      return {
+        translation: "",
+        detectedLanguage: "unknown",
+        rawText: "",
+      };
+    }
+
+    // 🔹 Step 3: Detect language using Groq
+    const detectPrompt = `
+Detect the language of the following text.
+Return ONLY the language name (e.g., "Spanish", "French", "Hindi").
+
+Text:
+${rawText}
+`.trim();
+
+    const detect = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: "You are a strict language detector." },
+        { role: "user", content: detectPrompt },
+      ],
+      max_tokens: 20,
+      temperature: 0,
+    });
+
+    const detectedLanguage =
+      detect.choices[0]?.message?.content?.trim() || "unknown";
+
+    // 🔹 Step 4: Translate OCR text
+    const translatePrompt = `
+You are a world-class professional translator.
+
+Translate the following OCR-extracted text into **${input.targetLanguage}**.
+Maintain meaning, tone, and clarity.
+Fix punctuation and formatting.
+DO NOT hallucinate or add content.
+
+Text:
+${rawText}
+`.trim();
+
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: "You are a precise translation engine." },
+        { role: "user", content: translatePrompt },
+      ],
+      max_tokens: 800,
+      temperature: 0.3,
+    });
+
+    const translatedText =
+      completion.choices[0]?.message?.content?.trim() || "";
+
+    return TranslateImageOutputSchema.parse({
+      translation: translatedText,
+      detectedLanguage,
+      rawText,
+    });
+
+  } catch (err) {
+    console.error("[Optimized Image Translation Error]", err);
+    throw new Error("Image translation failed. Please try again.");
+  }
 }
