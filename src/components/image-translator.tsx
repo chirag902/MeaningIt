@@ -87,33 +87,10 @@ export const ImageTranslator = React.memo(function ImageTranslator({
     };
   }, [getCameraPermission]);
 
-  const preprocessImage = (ctx: CanvasRenderingContext2D) => {
-      const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-      const data = imageData.data;
-      
-      // Grayscale and Contrast
-      const contrast = 128; // 0 to 255
-      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
-
-      for (let i = 0; i < data.length; i += 4) {
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-          
-          // Grayscale (luminosity method is often better but average is simpler)
-          const gray = (r + g + b) / 3;
-          
-          data[i] = gray;
-          data[i + 1] = gray;
-          data[i + 2] = gray;
-
-          // Apply contrast
-          data[i] = factor * (data[i] - 128) + 128;
-          data[i+1] = factor * (data[i+1] - 128) + 128;
-          data[i+2] = factor * (data[i+2] - 128) + 128;
-      }
-      
-      ctx.putImageData(imageData, 0, 0);
+  const enhanceImage = (ctx: CanvasRenderingContext2D) => {
+      // Apply hardware-accelerated filters for better performance and results
+      // Increases contrast and brightness, which helps OCR engines.
+      ctx.filter = 'contrast(1.5) brightness(1.2) grayscale(1)';
   }
 
   const handleCaptureAndTranslate = async () => {
@@ -139,10 +116,11 @@ export const ImageTranslator = React.memo(function ImageTranslator({
         return;
     }
     
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Apply image enhancements
+    enhanceImage(ctx);
     
-    // Preprocess the image
-    preprocessImage(ctx);
+    // Draw the enhanced image to the canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     // Get image data
     const photoDataUri = canvas.toDataURL('image/jpeg', 0.95);
@@ -250,11 +228,12 @@ export const ImageTranslator = React.memo(function ImageTranslator({
 
       {translatedText && (
         <div className="w-full pt-4">
-          <h3 className="font-semibold mb-2">Translated Text:</h3>
+          <h3 className="font-semibold mb-2">Translated Text (Editable):</h3>
           <Textarea
             value={translatedText}
-            readOnly
+            onChange={(e) => setTranslatedText(e.target.value)}
             className="h-32 bg-muted/50"
+            aria-label="Editable translated text"
           />
         </div>
       )}
