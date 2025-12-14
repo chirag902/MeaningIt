@@ -1,7 +1,8 @@
+
 'use client';
 
 import * as React from 'react';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { handleImageTranslation } from '@/app/actions';
@@ -86,24 +87,68 @@ export const ImageTranslator = React.memo(function ImageTranslator({
     };
   }, [getCameraPermission]);
 
+  const preprocessImage = (ctx: CanvasRenderingContext2D) => {
+      const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+      const data = imageData.data;
+      
+      // Grayscale and Contrast
+      const contrast = 128; // 0 to 255
+      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
+
+      for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          
+          // Grayscale (luminosity method is often better but average is simpler)
+          const gray = (r + g + b) / 3;
+          
+          data[i] = gray;
+          data[i + 1] = gray;
+          data[i + 2] = gray;
+
+          // Apply contrast
+          data[i] = factor * (data[i] - 128) + 128;
+          data[i+1] = factor * (data[i+1] - 128) + 128;
+          data[i+2] = factor * (data[i+2] - 128) + 128;
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+  }
+
   const handleCaptureAndTranslate = async () => {
     if (!videoRef.current || !canvasRef.current) return;
 
     setIsProcessing(true);
-    setProcessingMessage('Capturing & Translating...');
+    setProcessingMessage('Capturing & Preprocessing...');
     setTranslatedText(''); // clear previous
 
     // Capture frame
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    ctx?.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+    
+    // Upscale for better quality
+    const scaleFactor = 2;
+    canvas.width = video.videoWidth * scaleFactor;
+    canvas.height = video.videoHeight * scaleFactor;
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not get canvas context.' });
+        setIsProcessing(false);
+        return;
+    }
+    
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    // Preprocess the image
+    preprocessImage(ctx);
 
     // Get image data
-    const photoDataUri = canvas.toDataURL('image/jpeg');
+    const photoDataUri = canvas.toDataURL('image/jpeg', 0.95);
     const targetLanguageName = languages.find((l) => l.code === targetLang)?.name ?? 'English';
+
+    setProcessingMessage('Translating with AI...');
 
     // Call server action
     const result = await handleImageTranslation({
@@ -121,7 +166,7 @@ export const ImageTranslator = React.memo(function ImageTranslator({
           toast({
             variant: 'destructive',
             title: 'OCR Failed',
-            description: 'Could not detect any text in the image.',
+            description: 'Could not detect any text in the image. Try improving lighting or taking a clearer picture.',
           });
           setIsProcessing(false);
           return;
@@ -151,6 +196,15 @@ export const ImageTranslator = React.memo(function ImageTranslator({
 
   return (
     <div className="flex flex-col gap-4 items-center">
+
+        <Alert className="bg-primary/5 border-primary/20">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertTitle>For Best Results</AlertTitle>
+          <AlertDescription className="text-xs">
+            Use clear screenshots instead of camera photos. Ensure good contrast (light mode often works better than dark mode). Some text may not be detected depending on image quality.
+          </AlertDescription>
+        </Alert>
+
       <div className="relative w-full max-w-md aspect-video rounded-lg overflow-hidden border bg-muted">
         <video
           ref={videoRef}
