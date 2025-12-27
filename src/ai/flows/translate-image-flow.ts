@@ -1,7 +1,8 @@
+
 "use server";
 
 import Groq from "groq-sdk";
-import tesseract from "node-tesseract-ocr";
+import Tesseract from "tesseract.js";
 import { z } from "zod";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
@@ -16,17 +17,17 @@ export async function translateImage(input: {
   targetLanguage: string;
 }): Promise<TranslateImageOutput> {
   try {
-    // Convert Data URI → Buffer
-    const base64 = input.photoDataUri.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64, "base64");
-
-    // ----- PRIMARY OCR ENGINE (SERVER) -----
+    // ----- PRIMARY OCR ENGINE (SERVER with tesseract.js) -----
     let extractedText = "";
     try {
-      const ocrText = await tesseract.recognize(buffer, {
-        lang: "eng+hin+spa+fra+deu+ita+jpn+kor", 
-      });
-      extractedText = ocrText.trim();
+      const result = await Tesseract.recognize(
+        input.photoDataUri,
+        "eng+hin+spa+fra+deu+ita+jpn+kor", 
+        {
+          // logger: m => console.log(m) 
+        }
+      );
+      extractedText = result.data.text.trim();
     } catch (err) {
       console.error("[Server OCR Failed → Will fallback later]", err);
     }
