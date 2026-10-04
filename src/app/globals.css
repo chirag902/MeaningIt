@@ -2,78 +2,463 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================================
+   MEANINGIT — GLOBAL DESIGN SYSTEM
+   ========================================================= */
+
 @layer base {
   :root {
+    /* ---------- Core surfaces ---------- */
     --background: 220 20% 98%;
     --foreground: 224 7.1% 4.1%;
+
     --card: 0 0% 100%;
     --card-foreground: 224 7.1% 4.1%;
+
     --popover: 0 0% 100%;
     --popover-foreground: 224 7.1% 4.1%;
-    --primary: 248 81% 59%; /* New vibrant blue/purple */
+
+    /* ---------- Brand ---------- */
+    --primary: 248 81% 59%;
     --primary-foreground: 0 0% 98%;
+
     --secondary: 220 14.3% 95.9%;
     --secondary-foreground: 222.2 84% 4.9%;
+
+    --accent: 174 100% 42%;
+    --accent-foreground: 0 0% 98%;
+
+    /* ---------- Supporting surfaces ---------- */
     --muted: 220 14.3% 95.9%;
     --muted-foreground: 220 8.9% 46.1%;
-    --accent: 174 100% 42%; /* New vibrant teal */
-    --accent-foreground: 0 0% 98%;
+
+    /* ---------- Feedback ---------- */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+
+    /* ---------- UI ---------- */
     --border: 220 13% 91%;
     --input: 220 13% 91%;
     --ring: 248 81% 59%;
-    --radius: 0.75rem; /* Slightly more rounded corners */
+
+    --radius: 0.75rem;
+
+    /* ---------- MeaningIt-specific surfaces ---------- */
+    --surface-glass: 0 0% 100%;
+    --surface-subtle: 220 20% 96%;
+    --surface-hover: 220 18% 94%;
+
+    /* ---------- Brand glow ---------- */
+    --primary-glow: 248 81% 59%;
+    --accent-glow: 174 100% 42%;
   }
 
+  /* =========================================================
+     DARK THEME
+     ========================================================= */
+
   .dark {
-    --background: 240 10% 4%; /* New dark blue */
+    --background: 240 10% 4%;
     --foreground: 0 0% 98%;
+
     --card: 240 10% 8%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 4%;
+
+    --popover: 240 10% 5%;
     --popover-foreground: 0 0% 98%;
+
+    /* ---------- Brand ---------- */
     --primary: 248 81% 70%;
     --primary-foreground: 248 81% 10%;
+
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+
     --accent: 174 100% 60%;
     --accent-foreground: 174 100% 12%;
+
+    /* ---------- Supporting surfaces ---------- */
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    /* ---------- Feedback ---------- */
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+
+    /* ---------- UI ---------- */
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 248 81% 70%;
+
+    /* ---------- MeaningIt-specific surfaces ---------- */
+    --surface-glass: 240 10% 7%;
+    --surface-subtle: 240 10% 9%;
+    --surface-hover: 240 10% 12%;
+
+    /* ---------- Brand glow ---------- */
+    --primary-glow: 248 81% 70%;
+    --accent-glow: 174 100% 60%;
   }
 }
+
+/* =========================================================
+   GLOBAL FOUNDATION
+   ========================================================= */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+
+    min-height: 100vh;
+    min-height: 100dvh;
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+
+    /* Premium but extremely subtle global background */
+    background-image:
+      radial-gradient(
+        ellipse 80% 70% at 115% -15%,
+        hsl(var(--primary-glow) / 0.12),
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 75% 70% at -15% 115%,
+        hsl(var(--accent-glow) / 0.10),
+        transparent 60%
+      );
+
+    background-attachment: fixed;
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(
+        ellipse 80% 70% at 115% -15%,
+        hsl(var(--primary-glow) / 0.18),
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 75% 70% at -15% 115%,
+        hsl(var(--accent-glow) / 0.14),
+        transparent 60%
+      );
+  }
+
+  /* Better text selection */
+  ::selection {
+    background: hsl(var(--primary) / 0.20);
+    color: hsl(var(--foreground));
+  }
+
+  /* Keyboard accessibility */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Remove default tap highlight on mobile */
+  button,
+  a,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent media from overflowing containers */
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+  }
+
+  /* Better form controls */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  /* Improve textarea/input rendering */
+  input,
+  textarea {
+    font-synthesis: none;
+  }
+}
+
+/* =========================================================
+   SCROLLBAR
+   ========================================================= */
 
 @layer base {
   * {
-    @apply border-border;
+    scrollbar-width: thin;
+    scrollbar-color:
+      hsl(var(--muted-foreground) / 0.30)
+      transparent;
   }
-  body {
-    @apply bg-background text-foreground;
-    background-image: radial-gradient(ellipse 80% 80% at 120% -20%, hsl(var(--primary) / 0.15), transparent),
-                      radial-gradient(ellipse 80% 80% at -20% 120%, hsl(var(--accent) / 0.15), transparent);
-    background-attachment: fixed;
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
   }
-  .dark body {
-     background-image: radial-gradient(ellipse 80% 80% at 120% -20%, hsl(var(--primary) / 0.2), transparent),
-                      radial-gradient(ellipse 80% 80% at -20% 120%, hsl(var(--accent) / 0.2), transparent);
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.25);
+    border-radius: 999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.45);
+  }
+
+  .dark *::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.30);
+  }
+
+  .dark *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.50);
   }
 }
 
-@keyframes wave {
-  0%, 100% {
-    transform: scaleY(0.5);
+/* =========================================================
+   REUSABLE MEANINGIT SURFACES
+   ========================================================= */
+
+@layer components {
+  /*
+   * Premium glass surface.
+   *
+   * Use for:
+   * - translator panels
+   * - floating controls
+   * - language selectors
+   * - navigation cards
+   */
+  .glass {
+    background: hsl(var(--surface-glass) / 0.70);
+    border: 1px solid hsl(var(--border) / 0.70);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
   }
+
+  /*
+   * Subtle elevated surface.
+   */
+  .surface {
+    background: hsl(var(--surface-glass));
+    border: 1px solid hsl(var(--border));
+  }
+
+  /*
+   * Premium interactive surface.
+   */
+  .surface-hover {
+    transition:
+      background-color 180ms ease,
+      border-color 180ms ease,
+      box-shadow 180ms ease,
+      transform 180ms ease;
+  }
+
+  .surface-hover:hover {
+    background: hsl(var(--surface-hover));
+    border-color: hsl(var(--primary) / 0.22);
+  }
+
+  /*
+   * Brand glow utility.
+   */
+  .brand-glow {
+    box-shadow:
+      0 0 0 1px hsl(var(--primary) / 0.08),
+      0 12px 40px hsl(var(--primary) / 0.12);
+  }
+
+  /*
+   * Gradient text for major MeaningIt headings.
+   */
+  .text-gradient {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)),
+      hsl(var(--accent))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* =========================================================
+   TRANSLATOR-SPECIFIC UTILITIES
+   ========================================================= */
+
+@layer utilities {
+  /*
+   * Prevent long translated words / URLs from breaking layouts.
+   */
+  .text-balance-safe {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /*
+   * Useful for translation text areas.
+   */
+  .translation-text {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
+  /*
+   * Hide scrollbar while preserving scrolling.
+   * Useful for horizontal language selectors.
+   */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /*
+   * Safe-area support for mobile devices.
+   */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-x {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* =========================================================
+   VOICE / AUDIO VISUALIZATION
+   ========================================================= */
+
+@keyframes wave {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+    opacity: 0.65;
+  }
+
   50% {
     transform: scaleY(1.5);
+    opacity: 1;
   }
 }
 
 .animate-wave {
-  animation: wave 1.2s infinite ease-in-out;
+  animation: wave 1.2s ease-in-out infinite;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+/* =========================================================
+   SUBTLE MICRO-INTERACTION
+   ========================================================= */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 220ms ease-out both;
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 180ms ease-out both;
+}
+
+/* =========================================================
+   ACCESSIBILITY — REDUCED MOTION
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* =========================================================
+   MOBILE OPTIMIZATION
+   ========================================================= */
+
+@media (max-width: 640px) {
+  body {
+    background-attachment: scroll;
+  }
+}
+
+/* =========================================================
+   PRINT
+   ========================================================= */
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
 }
