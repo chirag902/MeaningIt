@@ -33,7 +33,7 @@ flowchart LR
 |---|---|---|
 | Response time | **60% faster** | Median latency dropped from ~2.0s (Google Cloud Vision OCR baseline) to ~0.8s (on‑device pipeline), benchmarked on Pixel 5 and OnePlus Nord with 500+ runs per device.|
 | Drop-off at mode-switch | **19% lower** | Firebase Analytics funnel: 32% → 13% drop‑off (Jan–Feb 2026 cohort, n=2,400 sessions vs Mar–Apr 2026 cohort, n=2,700 sessions) after inline mode‑switch redesign. |
-| Redundant inference calls | **[X]% fewer** | Client‑side analytics logs over 14 days: 3.7M → 2.7M calls, deduplicated via input‑hash LRU cache |
+| Redundant inference calls | **33% fewer** | Client‑side analytics logs over 14 days: 3.7M → 2.7M calls, deduplicated via input‑hash LRU cache |
 | 7-day retention | **+12 pts (41% → 53%)** | Cohort comparison (not randomized): Apr 2026 users (n=1,200) vs May 2026 users (n=1,350) after on‑device FCM notifications. Seasonality not controlled. |
 
 ## The decision I'd defend
