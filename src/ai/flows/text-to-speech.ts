@@ -1,18 +1,34 @@
-
 'use server';
 
 import { z } from 'zod';
+
+import { logger } from '@/lib/logger';
+
+/* -------------------------------------------------------------------------- */
+/* Configuration                                                              */
+/* -------------------------------------------------------------------------- */
 
 const DEFAULT_LANGUAGE_CODE = 'en-US';
 const DEFAULT_VOICE_GENDER = 'FEMALE';
 const DEFAULT_AUDIO_MIME = 'audio/wav';
 
 const TTS_TIMEOUT_MS = 20_000;
-const MAX_TEXT_LENGTH = 5_000;
+
+// Matches actions.ts (10,000). Longer text is still accepted, but only the
+// browser's own speech engine reads it.
+const MAX_TEXT_LENGTH = 10_000;
+// Above this, skip the paid provider: audio payloads grow fast, and every
+// byte travels through a server action to the browser.
+const MAX_SERVER_TTS_CHARS = 1_500;
+
 const MAX_LANGUAGE_CODE_LENGTH = 35;
 const MAX_VOICE_NAME_LENGTH = 150;
-const MAX_AUDIO_BASE64_LENGTH = 15_000_000;
+const MAX_AUDIO_BASE64_LENGTH = 10_000_000; // about 7 MB of audio
 const MAX_PROVIDER_RESPONSE_BYTES = MAX_AUDIO_BASE64_LENGTH + 100_000;
+
+/* -------------------------------------------------------------------------- */
+/* Schemas                                                                    */
+/* -------------------------------------------------------------------------- */
 
 const TextToSpeechInputSchema = z.object({
   text: z
@@ -21,11 +37,12 @@ const TextToSpeechInputSchema = z.object({
     .min(1, 'Text cannot be empty.')
     .max(MAX_TEXT_LENGTH, 'Text is too long for speech synthesis.'),
 
+  // BCP-47 style, e.g. "en", "hi-IN", "zh-Hans-CN"
   languageCode: z
     .string()
     .trim()
-    .min(2)
     .max(MAX_LANGUAGE_CODE_LENGTH)
+    .regex(/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,3}$/, 'Invalid language code.')
     .optional(),
 
   voiceGender: z.enum(['MALE', 'FEMALE']).optional(),
@@ -35,17 +52,16 @@ const TextToSpeechInputSchema = z.object({
     .trim()
     .min(1)
     .max(MAX_VOICE_NAME_LENGTH)
+    .regex(/^[A-Za-z0-9._-]+$/, 'Invalid voice name.')
     .optional(),
 });
 
 export type TextToSpeechInput = z.infer<typeof TextToSpeechInputSchema>;
 
-const TextToSpeechOutputSchema = z.object({
-  audioDataUri: z.string().nullable(),
-  ssml: z.string().optional(),
-});
-
-export type TextToSpeechOutput = z.infer<typeof TextToSpeechOutputSchema>;
+export type TextToSpeechOutput = {
+  audioDataUri: string | null;
+  ssml?: string;
+};
 
 const TTSProviderResponseSchema = z
   .object({
@@ -55,147 +71,114 @@ const TTSProviderResponseSchema = z
   })
   .passthrough();
 
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
 function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return (
+    text
+      // Control characters are invalid in XML 1.0.
+      
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+  );
 }
 
 function buildSsml(text: string): string {
   return `<speak>${escapeXml(text)}</speak>`;
 }
 
+function fallbackResult(ssml: string): TextToSpeechOutput {
+  return { audioDataUri: null, ssml };
+}
+
 function getTtsApiUrl(): string | null {
   const rawUrl = process.env.TTS_API_URL?.trim();
-
-  if (!rawUrl) {
-    return null;
-  }
+  if (!rawUrl) return null;
 
   try {
     const url = new URL(rawUrl);
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isLocal = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
 
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-      console.error('[MeaningIt TTS] Unsupported provider URL protocol.');
+    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && (!isProduction || isLocal))) {
+      logger.error('TTS provider URL must use https in production.');
       return null;
     }
 
     if (url.username || url.password) {
-      console.error('[MeaningIt TTS] Credentials must not be embedded in the provider URL.');
+      logger.error('TTS provider URL must not contain embedded credentials.');
       return null;
     }
 
     return url.toString();
   } catch {
-    console.error('[MeaningIt TTS] Invalid TTS_API_URL configuration.');
+    logger.error('TTS_API_URL is not a valid URL.');
     return null;
   }
 }
 
+/** Linear scan, no backtracking. Safe on multi-MB strings. */
 function isValidBase64(value: string): boolean {
-  if (
-    !value ||
-    value.length > MAX_AUDIO_BASE64_LENGTH ||
-    value.length % 4 !== 0 ||
-    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
-      value,
-    )
-  ) {
+  if (!value || value.length > MAX_AUDIO_BASE64_LENGTH || value.length % 4 !== 0) {
     return false;
   }
 
-  return true;
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  return !/[^A-Za-z0-9+/]/.test(value.slice(0, value.length - padding));
 }
 
 function isValidAudioMime(mime: string): boolean {
   return /^audio\/[a-z0-9][a-z0-9.+-]*$/i.test(mime);
 }
 
-function buildAudioDataUri(
-  audioBase64: string,
-  mime: string,
-): string | null {
-  const normalizedBase64 = audioBase64.replace(/\s+/g, '');
+function buildAudioDataUri(audioBase64: string, mime: string): string | null {
+  const payload = /\s/.test(audioBase64) ? audioBase64.replace(/\s+/g, '') : audioBase64;
   const normalizedMime = mime.trim().toLowerCase();
 
   if (!isValidAudioMime(normalizedMime)) {
-    console.error('[MeaningIt TTS] Invalid audio MIME type.');
+    logger.error('TTS provider returned an invalid audio MIME type.');
     return null;
   }
 
-  if (!isValidBase64(normalizedBase64)) {
-    console.error('[MeaningIt TTS] Invalid or oversized Base64 audio.');
+  if (!isValidBase64(payload)) {
+    logger.error('TTS provider returned invalid or oversized Base64 audio.');
     return null;
   }
 
-  return `data:${normalizedMime};base64,${normalizedBase64}`;
+  return `data:${normalizedMime};base64,${payload}`;
 }
 
+/** Parses a data URI by position instead of running a regex over megabytes. */
 function validateAudioDataUri(value: string): string | null {
   const normalized = value.trim();
+  const marker = ';base64,';
 
-  if (
-    !normalized ||
-    normalized.length > MAX_AUDIO_BASE64_LENGTH + 100
-  ) {
+  if (!normalized.startsWith('data:') || normalized.length > MAX_AUDIO_BASE64_LENGTH + 100) {
     return null;
   }
 
-  const match = normalized.match(
-    /^data:(audio\/[a-z0-9][a-z0-9.+-]*);base64,([A-Za-z0-9+/]*={0,2})$/i,
-  );
+  const markerIndex = normalized.indexOf(marker);
+  if (markerIndex < 0 || markerIndex > 100) return null;
 
-  if (!match) {
-    return null;
-  }
+  const mime = normalized.slice(5, markerIndex).toLowerCase();
+  const payload = normalized.slice(markerIndex + marker.length);
 
-  const mime = match[1];
-  const payload = match[2];
+  if (!isValidAudioMime(mime) || !isValidBase64(payload)) return null;
 
-  if (!isValidAudioMime(mime) || !isValidBase64(payload)) {
-    return null;
-  }
-
-  return `data:${mime.toLowerCase()};base64,${payload}`;
+  return `data:${mime};base64,${payload}`;
 }
 
-function createTimeoutController(timeoutMs: number): {
-  signal: AbortSignal;
-  dispose: () => void;
-} {
-  const controller = new AbortController();
+/** Reads a response body with a strict byte limit. */
+async function readResponseText(response: Response, maxBytes: number): Promise<string> {
+  const declared = Number(response.headers.get('content-length'));
 
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
-
-  return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timeoutId),
-  };
-}
-
-/**
- * Reads a provider response with a strict byte limit.
- * This protects against unexpectedly large or chunked responses.
- */
-async function readResponseText(
-  response: Response,
-  maxBytes: number,
-): Promise<string> {
-  const contentLength = response.headers.get('content-length');
-
-  if (contentLength !== null) {
-    const declaredLength = Number(contentLength);
-
-    if (
-      Number.isFinite(declaredLength) &&
-      declaredLength > maxBytes
-    ) {
-      await response.body?.cancel().catch(() => undefined);
-      throw new Error('TTS provider response exceeded the size limit.');
-    }
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error('TTS provider response exceeded the size limit.');
   }
 
   if (!response.body) {
@@ -204,16 +187,13 @@ async function readResponseText(
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
+  const parts: string[] = [];
   let totalBytes = 0;
-  let result = '';
 
   try {
     while (true) {
       const { done, value } = await reader.read();
-
-      if (done) {
-        break;
-      }
+      if (done) break;
 
       totalBytes += value.byteLength;
 
@@ -222,47 +202,44 @@ async function readResponseText(
         throw new Error('TTS provider response exceeded the size limit.');
       }
 
-      result += decoder.decode(value, { stream: true });
+      parts.push(decoder.decode(value, { stream: true }));
     }
 
-    result += decoder.decode();
-    return result;
+    parts.push(decoder.decode());
+    return parts.join('');
   } finally {
     reader.releaseLock();
   }
 }
 
-function fallbackResult(ssml: string): TextToSpeechOutput {
-  return {
-    audioDataUri: null,
-    ssml,
-  };
-}
+/* -------------------------------------------------------------------------- */
+/* Main function                                                              */
+/* -------------------------------------------------------------------------- */
 
-export async function textToSpeech(
-  input: TextToSpeechInput,
-): Promise<TextToSpeechOutput> {
-  const validated = TextToSpeechInputSchema.parse(input);
+export async function textToSpeech(input: TextToSpeechInput): Promise<TextToSpeechOutput> {
+  const parsed = TextToSpeechInputSchema.safeParse(input);
 
-  const languageCode =
-    validated.languageCode || DEFAULT_LANGUAGE_CODE;
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? 'Invalid text-to-speech request.');
+  }
 
-  const voiceGender =
-    validated.voiceGender || DEFAULT_VOICE_GENDER;
+  const { text } = parsed.data;
+  const languageCode = parsed.data.languageCode || DEFAULT_LANGUAGE_CODE;
+  const voiceGender = parsed.data.voiceGender || DEFAULT_VOICE_GENDER;
+  const voiceName = parsed.data.voiceName || undefined;
 
-  const voiceName = validated.voiceName || undefined;
+  const ssml = buildSsml(text);
 
-  const ssml = buildSsml(validated.text);
+  // Server-side TTS is optional. Without a provider, or for long text, the
+  // client reads the SSML or text with the browser's speech engine.
   const ttsApiUrl = getTtsApiUrl();
-
-  // Server-side TTS is optional. The client can use browser speech.
-  if (!ttsApiUrl) {
+  if (!ttsApiUrl || text.length > MAX_SERVER_TTS_CHARS) {
     return fallbackResult(ssml);
   }
 
   const ttsApiKey = process.env.TTS_API_KEY?.trim();
-
-  const timeout = createTimeoutController(TTS_TIMEOUT_MS);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
 
   try {
     const response = await fetch(ttsApiUrl, {
@@ -270,105 +247,80 @@ export async function textToSpeech(
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
-        ...(ttsApiKey
-          ? { Authorization: `Bearer ${ttsApiKey}` }
-          : {}),
+        ...(ttsApiKey ? { Authorization: `Bearer ${ttsApiKey}` } : {}),
       },
       body: JSON.stringify({
-        text: validated.text,
+        text,
         ssml,
         languageCode,
         voiceGender,
         ...(voiceName ? { voiceName } : {}),
         format: 'wav',
       }),
-      signal: timeout.signal,
+      signal: controller.signal,
       cache: 'no-store',
     });
 
     if (!response.ok) {
-      console.error('[MeaningIt TTS] Provider request failed.', {
-        status: response.status,
-      });
-
+      logger.error('TTS provider request failed.', { status: response.status });
       await response.body?.cancel().catch(() => undefined);
       return fallbackResult(ssml);
     }
 
-    const contentType =
-      response.headers.get('content-type')?.toLowerCase() || '';
+    const contentType = response.headers.get('content-type')?.toLowerCase() || '';
 
     if (!contentType.includes('application/json')) {
-      console.error('[MeaningIt TTS] Provider returned a non-JSON response.');
-
+      logger.error('TTS provider returned a non-JSON response.', { contentType });
       await response.body?.cancel().catch(() => undefined);
       return fallbackResult(ssml);
     }
 
-    const responseText = await readResponseText(
-      response,
-      MAX_PROVIDER_RESPONSE_BYTES,
-    );
+    const responseText = await readResponseText(response, MAX_PROVIDER_RESPONSE_BYTES);
 
     let rawJson: unknown;
-
     try {
       rawJson = JSON.parse(responseText);
     } catch {
-      console.error('[MeaningIt TTS] Provider returned invalid JSON.');
+      logger.error('TTS provider returned invalid JSON.');
       return fallbackResult(ssml);
     }
 
-    const parsed = TTSProviderResponseSchema.safeParse(rawJson);
+    const providerResponse = TTSProviderResponseSchema.safeParse(rawJson);
 
-    if (!parsed.success) {
-      console.error('[MeaningIt TTS] Invalid provider response structure.');
+    if (!providerResponse.success) {
+      logger.error('TTS provider response has an unexpected structure.');
       return fallbackResult(ssml);
     }
 
-    const providerData = parsed.data;
+    const data = providerResponse.data;
 
-    // Format 1: provider returns a complete audio data URI.
-    if (providerData.audioDataUri) {
-      const audioDataUri = validateAudioDataUri(
-        providerData.audioDataUri,
-      );
+    // Format 1: a complete audio data URI.
+    if (data.audioDataUri) {
+      const audioDataUri = validateAudioDataUri(data.audioDataUri);
+      if (audioDataUri) return { audioDataUri, ssml };
 
-      if (audioDataUri) {
-        return { audioDataUri, ssml };
-      }
-
-      console.error('[MeaningIt TTS] Invalid audio data URI.');
+      logger.error('TTS provider returned an invalid audio data URI.');
     }
 
-    // Format 2: provider returns Base64 plus a MIME type.
-    if (providerData.audioBase64) {
-      const audioDataUri = buildAudioDataUri(
-        providerData.audioBase64,
-        providerData.mime || DEFAULT_AUDIO_MIME,
-      );
-
-      if (audioDataUri) {
-        return { audioDataUri, ssml };
-      }
+    // Format 2: Base64 audio plus a MIME type.
+    if (data.audioBase64) {
+      const audioDataUri = buildAudioDataUri(data.audioBase64, data.mime || DEFAULT_AUDIO_MIME);
+      if (audioDataUri) return { audioDataUri, ssml };
     }
 
-    console.error('[MeaningIt TTS] Provider returned no usable audio.');
+    logger.error('TTS provider returned no usable audio.');
     return fallbackResult(ssml);
   } catch (error: unknown) {
-    if (timeout.signal.aborted) {
-      console.error(
-        `[MeaningIt TTS] Provider timed out after ${TTS_TIMEOUT_MS}ms.`,
-      );
+    if (controller.signal.aborted) {
+      logger.error('TTS provider timed out.', { timeoutMs: TTS_TIMEOUT_MS });
     } else {
-      console.error(
-        '[MeaningIt TTS] Provider request failed.',
-        error instanceof Error ? error.message : 'Unknown provider error',
-      );
+      logger.error('TTS provider request failed.', {
+        reason: error instanceof Error ? error.message : 'Unknown provider error',
+      });
     }
 
     return fallbackResult(ssml);
   } finally {
-    timeout.dispose();
+    clearTimeout(timeoutId);
   }
 }

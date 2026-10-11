@@ -1,0 +1,16 @@
+name: Health check
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  deep-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check app and model availability
+        run: |
+          curl -fsS --max-time 30 \
+            -H "x-health-secret: ${{ secrets.HEALTHCHECK_SECRET }}" \
+            "${{ secrets.APP_URL }}/api/health?deep=1"

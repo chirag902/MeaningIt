@@ -16,102 +16,144 @@ interface UseSpeakReturn {
   isSupported: boolean;
 }
 
-const MAX_SPEECH_LENGTH = 8_000;
-const AUDIO_LOAD_TIMEOUT_MS = 15_000;
+/* -------------------------------------------------------------------------- */
+/* Configuration                                                              */
+/* -------------------------------------------------------------------------- */
 
+const MAX_SPEECH_LENGTH = 8_000;
+// Must match MAX_SERVER_TTS_CHARS in text-to-speech.ts. Longer text is read
+// by the browser only, so we don't waste a server round trip on it.
+const MAX_SERVER_TTS_CHARS = 1_500;
+const AUDIO_START_TIMEOUT_MS = 15_000;
+const VOICE_WAIT_MS = 1_000;
+// Chrome stops long utterances after ~15 s, so speech is queued in chunks.
+const MAX_CHUNK_LENGTH = 220;
 const DEFAULT_LANGUAGE = 'en-US';
 
-type SpeechSynthesisVoiceWithLanguage = SpeechSynthesisVoice & {
-  lang: string;
-};
+// Default: use the browser's own voice when one exists (instant and free) and
+// call the server only when there is none. Set NEXT_PUBLIC_TTS_PREFER_SERVER=1
+// to prefer your TTS provider's voice quality.
+const PREFER_SERVER = process.env.NEXT_PUBLIC_TTS_PREFER_SERVER === '1';
 
-/**
- * Normalizes language codes such as:
- *   en      -> en
- *   en-US   -> en-us
- *   EN_us   -> en-us
- */
-function normalizeLanguageCode(language: string): string {
-  return language.trim().replace('_', '-').toLowerCase();
+type PlaybackOutcome = 'success' | 'failed' | 'cancelled';
+
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function hasBrowserSpeech(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    'speechSynthesis' in window &&
+    'SpeechSynthesisUtterance' in window
+  );
 }
 
-/**
- * Finds the best browser voice for a requested BCP-47 language.
- *
- * Priority:
- * 1. Exact locale match       en-US === en-US
- * 2. Same base language       en-US ~= en-GB
- * 3. Any available voice
- */
+/** en -> en, en-US -> en-us, EN_us -> en-us */
+function normalizeLanguageCode(language: string): string {
+  return language.trim().replace(/_/g, '-').toLowerCase();
+}
+
+/** Exact locale match first, then same base language. Never falls back to an unrelated voice. */
 function findBestVoice(
   voices: SpeechSynthesisVoice[],
   requestedLanguage: string,
 ): SpeechSynthesisVoice | undefined {
-  if (voices.length === 0) {
-    return undefined;
-  }
+  if (voices.length === 0) return undefined;
 
-  const normalizedRequested = normalizeLanguageCode(requestedLanguage);
-  const requestedBase = normalizedRequested.split('-')[0];
+  const requested = normalizeLanguageCode(requestedLanguage);
+  const requestedBase = requested.split('-')[0];
 
-  const exactMatch = voices.find(
-    (voice) =>
-      normalizeLanguageCode(voice.lang) === normalizedRequested,
+  return (
+    voices.find((voice) => normalizeLanguageCode(voice.lang) === requested) ??
+    voices.find((voice) => normalizeLanguageCode(voice.lang).split('-')[0] === requestedBase)
   );
-
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  const baseLanguageMatch = voices.find((voice) => {
-    const voiceLanguage = normalizeLanguageCode(voice.lang);
-    return voiceLanguage.split('-')[0] === requestedBase;
-  });
-
-  return baseLanguageMatch;
 }
 
-/**
- * Converts browser SpeechSynthesis error codes into
- * user-friendly messages.
- */
+/** Android and some desktop browsers fill the voice list asynchronously. */
+function waitForVoices(synthesis: SpeechSynthesis): Promise<SpeechSynthesisVoice[]> {
+  const existing = synthesis.getVoices();
+  if (existing.length > 0) return Promise.resolve(existing);
+
+  return new Promise((resolve) => {
+    const done = () => {
+      synthesis.removeEventListener('voiceschanged', done);
+      clearTimeout(timer);
+      resolve(synthesis.getVoices());
+    };
+
+    const timer = setTimeout(done, VOICE_WAIT_MS);
+    synthesis.addEventListener('voiceschanged', done);
+  });
+}
+
+/** Splits text at sentence boundaries (including the Devanagari danda). */
+function splitIntoChunks(text: string, maxLength = MAX_CHUNK_LENGTH): string[] {
+  const sentences = text.match(/[^.!?।॥。！？\n]+[.!?।॥。！？]*\s*|\n+/g) ?? [text];
+  const chunks: string[] = [];
+  let current = '';
+
+  const flush = () => {
+    const trimmed = current.trim();
+    if (trimmed) chunks.push(trimmed);
+    current = '';
+  };
+
+  for (const sentence of sentences) {
+    if (sentence.length > maxLength) {
+      flush();
+
+      let start = 0;
+      while (start < sentence.length) {
+        let end = Math.min(start + maxLength, sentence.length);
+
+        if (end < sentence.length) {
+          const space = sentence.lastIndexOf(' ', end);
+          if (space > start + maxLength / 2) end = space;
+        }
+
+        const piece = sentence.slice(start, end).trim();
+        if (piece) chunks.push(piece);
+        start = end;
+      }
+      continue;
+    }
+
+    if (current.length + sentence.length > maxLength) flush();
+    current += sentence;
+  }
+
+  flush();
+  return chunks;
+}
+
+/** Converts SpeechSynthesis error codes to user-friendly messages. Empty = ignore. */
 function getSpeechErrorMessage(error: SpeechSynthesisErrorEvent): string {
   switch (error.error) {
     case 'not-allowed':
-      return 'Speech playback was blocked by your browser. Please allow audio playback and try again.';
-
+      return 'Speech playback was blocked by your browser. Please allow audio and try again.';
     case 'language-unavailable':
-      return 'A voice for this language is not available in your browser.';
-
     case 'voice-unavailable':
-      return 'A suitable voice for this language is not available.';
-
+      return 'A voice for this language is not available in your browser.';
     case 'synthesis-unavailable':
       return 'Speech synthesis is temporarily unavailable.';
-
     case 'network':
       return 'The browser speech service could not be reached.';
-
     case 'audio-busy':
       return 'Audio playback is currently busy. Please try again.';
-
     case 'audio-hardware':
       return 'Your audio device could not play the speech.';
-
     case 'canceled':
     case 'interrupted':
       return '';
-
     default:
       return 'An unexpected error occurred during speech playback.';
   }
 }
 
-/**
- * Creates a timeout promise used to prevent a stuck Audio element
- * from leaving the hook permanently in the speaking state.
- */
-
+/* -------------------------------------------------------------------------- */
+/* Hook                                                                       */
+/* -------------------------------------------------------------------------- */
 
 export const useSpeak = (): UseSpeakReturn => {
   const { toast } = useToast();
@@ -119,70 +161,35 @@ export const useSpeak = (): UseSpeakReturn => {
   const [isSpeaking, setIsSpeaking] = React.useState(false);
 
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
-  const speechSynthesisRef = React.useRef<SpeechSynthesis | null>(null);
-
-  /**
-   * Each playback request receives an ID.
-   *
-   * This prevents an older asynchronous TTS request from changing
-   * the state after a newer request has already started.
-   */
-  const requestIdRef = React.useRef(0);
-
+  const cleanupAudioRef = React.useRef<(() => void) | null>(null);
+  const activeUtteranceRef = React.useRef<SpeechSynthesisUtterance | null>(null);
+  const lastBrowserErrorRef = React.useRef('');
   const mountedRef = React.useRef(true);
 
-  /**
-   * Browser TTS voices are loaded asynchronously in some browsers.
-   * Keeping them in a ref avoids unnecessary component renders.
-   */
-  const voicesRef = React.useRef<SpeechSynthesisVoice[]>([]);
+  // Each playback request gets an id so older async work can't touch newer state.
+  const requestIdRef = React.useRef(0);
 
-  /**
-   * Prevents duplicate cleanup callbacks from racing with each other.
-   */
-  const cleanupAudioRef = React.useRef<(() => void) | null>(null);
+  const isCurrent = React.useCallback(
+    (requestId: number) => mountedRef.current && requestId === requestIdRef.current,
+    [],
+  );
 
-  const isBrowserSpeechSupported =
-    typeof window !== 'undefined' &&
-    'speechSynthesis' in window &&
-    'SpeechSynthesisUtterance' in window;
+  /* ---------------------------- Stop helpers ----------------------------- */
 
-  const isSupported = isBrowserSpeechSupported || true;
-  // Server-side TTS is available through handleTextToSpeech,
-  // so the hook itself remains usable even when browser TTS is absent.
-
-  /**
-   * Update the cached browser voices.
-   */
-  const refreshVoices = React.useCallback(() => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-      voicesRef.current = [];
-      return;
-    }
-
-    voicesRef.current = window.speechSynthesis.getVoices();
-  }, []);
-
-  /**
-   * Stops currently playing server-generated audio.
-   */
   const stopAudio = React.useCallback(() => {
     const audio = audioRef.current;
 
-    if (!audio) {
-      return;
+    if (audio) {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.removeAttribute('src');
+        audio.load();
+      } catch {
+        // Audio cleanup must never crash the app.
+      }
+      audioRef.current = null;
     }
-
-    try {
-      audio.pause();
-      audio.currentTime = 0;
-      audio.removeAttribute('src');
-      audio.load();
-    } catch {
-      // Audio cleanup should never crash the application.
-    }
-
-    audioRef.current = null;
 
     if (cleanupAudioRef.current) {
       cleanupAudioRef.current();
@@ -190,549 +197,355 @@ export const useSpeak = (): UseSpeakReturn => {
     }
   }, []);
 
-  /**
-   * Stops browser-native speech synthesis.
-   */
   const stopBrowserSpeech = React.useCallback(() => {
-    if (
-      typeof window === 'undefined' ||
-      !window.speechSynthesis
-    ) {
-      return;
-    }
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
     try {
       window.speechSynthesis.cancel();
     } catch {
-      // Browser speech cleanup should never throw.
+      // Ignore.
     }
   }, []);
 
-  /**
-   * Stops every currently active speech mechanism.
-   */
   const stop = React.useCallback(() => {
     requestIdRef.current += 1;
-
     stopAudio();
     stopBrowserSpeech();
 
-    if (mountedRef.current) {
-      setIsSpeaking(false);
-    }
+    if (mountedRef.current) setIsSpeaking(false);
   }, [stopAudio, stopBrowserSpeech]);
 
-  /**
-   * Plays server-generated audio safely.
-   */
-  
-const playServerAudio = React.useCallback(
-  async (
-    audioDataUri: string,
-    requestId: number,
-  ): Promise<boolean> => {
-    // Validate the input and reject stale requests.
-    if (
-      typeof audioDataUri !== 'string' ||
-      !audioDataUri.trim() ||
-      !mountedRef.current ||
-      requestId !== requestIdRef.current
-    ) {
-      return false;
-    }
+  /* --------------------------- Server audio ------------------------------ */
 
-    // Stop any previous playback before starting this request.
-    stopAudio();
-    stopBrowserSpeech();
-
-    // Recheck after cleanup in case the request is no longer current.
-    if (
-      !mountedRef.current ||
-      requestId !== requestIdRef.current
-    ) {
-      return false;
-    }
-
-    let audio: HTMLAudioElement;
-
-    try {
-      audio = new Audio();
-    } catch {
-      return false;
-    }
-
-    audio.preload = 'auto';
-    audioRef.current = audio;
-
-    let settled = false;
-    let startupTimeoutId: ReturnType<typeof setTimeout> | null = null;
-
-    const cleanup = () => {
-      if (startupTimeoutId !== null) {
-        clearTimeout(startupTimeoutId);
-        startupTimeoutId = null;
-      }
-
-      audio.onended = null;
-      audio.onerror = null;
-      audio.onabort = null;
-      audio.onloadeddata = null;
-      audio.oncanplaythrough = null;
-    };
-
-    const finish = (): void => {
-      if (settled) {
-        return;
-      }
-
-      settled = true;
-      cleanup();
-
-      if (audioRef.current === audio) {
-        audioRef.current = null;
-      }
-
-      if (cleanupAudioRef.current === cleanup) {
-        cleanupAudioRef.current = null;
-      }
-
-      if (
-        mountedRef.current &&
-        requestId === requestIdRef.current
-      ) {
-        setIsSpeaking(false);
-      }
-    };
-
-    const fail = (): false => {
-      if (settled) {
+  /** Resolves true once playback has started. */
+  const playServerAudio = React.useCallback(
+    async (audioDataUri: string, requestId: number): Promise<boolean> => {
+      if (typeof audioDataUri !== 'string' || !audioDataUri.trim() || !isCurrent(requestId)) {
         return false;
       }
 
-      settled = true;
-      cleanup();
+      stopAudio();
+      stopBrowserSpeech();
+
+      if (!isCurrent(requestId)) return false;
+
+      let audio: HTMLAudioElement;
+      try {
+        audio = new Audio();
+      } catch {
+        return false;
+      }
+
+      audio.preload = 'auto';
+      audioRef.current = audio;
+
+      let settled = false;
+      let startupTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+      const cleanup = () => {
+        if (startupTimeoutId !== null) {
+          clearTimeout(startupTimeoutId);
+          startupTimeoutId = null;
+        }
+        audio.onended = null;
+        audio.onerror = null;
+        audio.onabort = null;
+      };
+
+      const release = () => {
+        if (audioRef.current === audio) audioRef.current = null;
+        if (cleanupAudioRef.current === cleanup) cleanupAudioRef.current = null;
+      };
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        release();
+
+        if (isCurrent(requestId)) setIsSpeaking(false);
+      };
+
+      const fail = (): false => {
+        if (!settled) {
+          settled = true;
+          cleanup();
+
+          try {
+            audio.pause();
+            audio.removeAttribute('src');
+            audio.load();
+          } catch {
+            // Must not block the browser fallback.
+          }
+
+          release();
+        }
+        return false;
+      };
+
+      cleanupAudioRef.current = cleanup;
+      audio.onended = finish;
+      audio.onerror = () => {
+        fail();
+      };
+      audio.onabort = () => {
+        fail();
+      };
 
       try {
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
+        audio.src = audioDataUri;
+
+        // Bound startup so a stuck play() can't block the fallback.
+        await Promise.race([
+          audio.play(),
+          new Promise<never>((_, reject) => {
+            startupTimeoutId = setTimeout(
+              () => reject(new Error('Audio playback startup timed out.')),
+              AUDIO_START_TIMEOUT_MS,
+            );
+          }),
+        ]);
+
+        if (!isCurrent(requestId)) return fail();
+
+        if (startupTimeoutId !== null) {
+          clearTimeout(startupTimeoutId);
+          startupTimeoutId = null;
+        }
+
+        return true;
       } catch {
-        // Cleanup must not prevent browser TTS fallback.
+        return fail();
       }
+    },
+    [isCurrent, stopAudio, stopBrowserSpeech],
+  );
 
-      if (audioRef.current === audio) {
-        audioRef.current = null;
+  const speakWithServer = React.useCallback(
+    async (text: string, language: string, requestId: number): Promise<PlaybackOutcome> => {
+      try {
+        const result = await handleTextToSpeech({ text, languageCode: language });
+
+        if (!isCurrent(requestId)) return 'cancelled';
+
+        if (result.success && result.audioDataUri) {
+          return (await playServerAudio(result.audioDataUri, requestId)) ? 'success' : 'failed';
+        }
+
+        return 'failed';
+      } catch (error: unknown) {
+        console.error('[useSpeak] Server TTS failed:', error);
+        return isCurrent(requestId) ? 'failed' : 'cancelled';
       }
+    },
+    [isCurrent, playServerAudio],
+  );
 
-      if (cleanupAudioRef.current === cleanup) {
-        cleanupAudioRef.current = null;
-      }
+  /* ---------------------------- Browser speech --------------------------- */
 
-      return false;
-    };
-
-    cleanupAudioRef.current = cleanup;
-
-    audio.onended = finish;
-    audio.onerror = () => {
-      fail();
-    };
-    audio.onabort = () => {
-      fail();
-    };
-
-    try {
-      audio.src = audioDataUri;
-
-      if (
-        mountedRef.current &&
-        requestId === requestIdRef.current
-      ) {
-        setIsSpeaking(true);
-      }
-
-      // Bound playback startup so a stuck play() cannot block fallback.
-      await Promise.race([
-        audio.play(),
-        new Promise<never>((_, reject) => {
-          startupTimeoutId = setTimeout(() => {
-            reject(new Error('Audio playback startup timed out.'));
-          }, AUDIO_LOAD_TIMEOUT_MS);
-        }),
-      ]);
-
-      // Do not allow an older request to continue playing.
-      if (
-        !mountedRef.current ||
-        requestId !== requestIdRef.current
-      ) {
-        fail();
-        return false;
-      }
-
-      // Playback has started. Keep event handlers active until
-      // onended, onerror, onabort, or explicit stop cleanup.
-      if (startupTimeoutId !== null) {
-        clearTimeout(startupTimeoutId);
-        startupTimeoutId = null;
-      }
-
-      return true;
-    } catch {
-      fail();
-      return false;
-    }
-  },
-  [stopAudio, stopBrowserSpeech],
-);
-
-  
-
-
-     
-  /**
-   * Browser-native TTS fallback.
-   */
   const speakWithBrowser = React.useCallback(
     (
       text: string,
       language: string,
       requestId: number,
-    ): Promise<boolean> => {
+      voice: SpeechSynthesisVoice | undefined,
+    ): Promise<PlaybackOutcome> => {
       return new Promise((resolve) => {
-        if (
-          typeof window === 'undefined' ||
-          !window.speechSynthesis ||
-          typeof window.SpeechSynthesisUtterance === 'undefined'
-        ) {
-          resolve(false);
+        if (!hasBrowserSpeech() || !isCurrent(requestId)) {
+          resolve(isCurrent(requestId) ? 'failed' : 'cancelled');
           return;
         }
 
-        if (
-          !mountedRef.current ||
-          requestId !== requestIdRef.current
-        ) {
-          resolve(false);
+        const chunks = splitIntoChunks(text);
+        if (chunks.length === 0) {
+          resolve('failed');
           return;
         }
 
         stopAudio();
 
         const synthesis = window.speechSynthesis;
-        speechSynthesisRef.current = synthesis;
 
         try {
           synthesis.cancel();
         } catch {
-          // Ignore cancellation errors.
+          // Ignore.
         }
 
-        const utterance = new SpeechSynthesisUtterance(text);
-
-        utterance.lang = language || DEFAULT_LANGUAGE;
-
-        /**
-         * Slightly conservative production defaults.
-         * They sound natural for a translator while remaining clear.
-         */
-        utterance.rate = 1;
-        utterance.pitch = 1;
-        utterance.volume = 1;
-
-        const voices =
-          voicesRef.current.length > 0
-            ? voicesRef.current
-            : synthesis.getVoices();
-
-        voicesRef.current = voices;
-
-        const voice = findBestVoice(voices, utterance.lang);
-
-        if (voice) {
-          utterance.voice = voice;
-        }
-
+        let index = 0;
         let settled = false;
 
-        const finish = (success: boolean) => {
-          if (settled) {
+        const finish = (outcome: PlaybackOutcome) => {
+          if (settled) return;
+          settled = true;
+          activeUtteranceRef.current = null;
+
+          if (isCurrent(requestId)) setIsSpeaking(false);
+          resolve(outcome);
+        };
+
+        const speakNext = () => {
+          if (settled) return;
+
+          if (!isCurrent(requestId)) {
+            finish('cancelled');
             return;
           }
 
-          settled = true;
-
-          if (
-            mountedRef.current &&
-            requestId === requestIdRef.current
-          ) {
-            setIsSpeaking(false);
+          if (index >= chunks.length) {
+            finish('success');
+            return;
           }
 
-          resolve(success);
-        };
+          const utterance = new SpeechSynthesisUtterance(chunks[index]);
+          utterance.lang = language;
+          utterance.rate = 1;
+          utterance.pitch = 1;
+          utterance.volume = 1;
+          if (voice) utterance.voice = voice;
 
-        utterance.onstart = () => {
-          if (
-            mountedRef.current &&
-            requestId === requestIdRef.current
-          ) {
-            setIsSpeaking(true);
+          utterance.onstart = () => {
+            if (isCurrent(requestId)) setIsSpeaking(true);
+          };
+
+          utterance.onend = () => {
+            index += 1;
+            speakNext();
+          };
+
+          utterance.onerror = (event) => {
+            // "canceled" and "interrupted" are normal when speech is replaced or stopped.
+            if (event.error === 'canceled' || event.error === 'interrupted') {
+              finish('cancelled');
+              return;
+            }
+
+            lastBrowserErrorRef.current = getSpeechErrorMessage(event);
+            finish('failed');
+          };
+
+          // Keep a reference: some browsers garbage-collect utterances mid-speech.
+          activeUtteranceRef.current = utterance;
+
+          try {
+            synthesis.speak(utterance);
+          } catch {
+            finish('failed');
           }
         };
 
-        utterance.onend = () => {
-          finish(true);
-        };
-
-        utterance.onerror = (event) => {
-          const message = getSpeechErrorMessage(event);
-
-          /**
-           * "canceled" and "interrupted" are normal control-flow
-           * events when another speech request replaces the current one.
-           */
-          if (
-            message &&
-            mountedRef.current &&
-            requestId === requestIdRef.current
-          ) {
-            toast({
-              variant: 'destructive',
-              title: 'Speech Playback',
-              description: message,
-            });
-          }
-
-          finish(false);
-        };
-
-        try {
-          synthesis.speak(utterance);
-        } catch {
-          finish(false);
-        }
+        // Chrome can drop speak() called immediately after cancel().
+        setTimeout(speakNext, 60);
       });
     },
-    [stopAudio, toast],
+    [isCurrent, stopAudio],
   );
 
-  /**
-   * Main public speech function.
-   *
-   * Strategy:
-   * 1. Validate text.
-   * 2. Stop previous speech.
-   * 3. Request server-side TTS.
-   * 4. Play server audio when available.
-   * 5. Automatically fall back to browser TTS.
-   * 6. Show a useful error only when both paths fail.
-   */
+  /* ------------------------------- Public API ---------------------------- */
+
   const speak = React.useCallback(
     async ({ text, lang }: SpeakProps): Promise<void> => {
       const normalizedText = text.trim();
-      const normalizedLanguage =
-        lang.trim() || DEFAULT_LANGUAGE;
+      const normalizedLanguage = lang.trim().replace(/_/g, '-') || DEFAULT_LANGUAGE;
 
-      if (!normalizedText) {
-        return;
-      }
+      if (!normalizedText) return;
 
       if (normalizedText.length > MAX_SPEECH_LENGTH) {
         toast({
           variant: 'destructive',
           title: 'Text Too Long',
-          description:
-            'Please shorten the text before using text-to-speech.',
+          description: 'Please shorten the text before using text-to-speech.',
         });
         return;
       }
 
       const requestId = ++requestIdRef.current;
 
-      /**
-       * Always stop the previous playback first.
-       * This makes repeated clicks behave predictably.
-       */
+      // Repeated clicks behave predictably: always stop previous playback first.
       stopAudio();
       stopBrowserSpeech();
+      lastBrowserErrorRef.current = '';
 
-      if (mountedRef.current) {
-        setIsSpeaking(true);
-      }
+      if (mountedRef.current) setIsSpeaking(true);
 
       try {
-        /**
-         * Primary path: server-generated TTS.
-         */
-        const result = await handleTextToSpeech({
-          text: normalizedText,
-          languageCode: normalizedLanguage,
-        });
+        const browserSupported = hasBrowserSpeech();
+        let voices: SpeechSynthesisVoice[] = [];
 
-        /**
-         * Ignore a stale server response.
-         */
-        if (
-          !mountedRef.current ||
-          requestId !== requestIdRef.current
-        ) {
-          return;
+        if (browserSupported) {
+          voices = await waitForVoices(window.speechSynthesis);
+          if (!isCurrent(requestId)) return;
         }
 
-        if (result.success && result.audioDataUri) {
-          const played = await playServerAudio(
-            result.audioDataUri,
-            requestId,
-          );
+        const voice = findBestVoice(voices, normalizedLanguage);
 
-          if (played) {
-            return;
-          }
+        // Use the browser only with a matching voice. Reading Hindi text with an
+        // English voice sounds like noise. (An empty voice list is allowed: some
+        // browsers synthesize by language without listing voices.)
+        const browserUsable = browserSupported && (voices.length === 0 || voice !== undefined);
+        const serverEligible = normalizedText.length <= MAX_SERVER_TTS_CHARS;
+
+        const order: Array<'browser' | 'server'> = [];
+        if (browserUsable && !(PREFER_SERVER && serverEligible)) order.push('browser');
+        if (serverEligible) order.push('server');
+        if (browserUsable && PREFER_SERVER && serverEligible) order.push('browser');
+
+        for (const strategy of order) {
+          const outcome =
+            strategy === 'browser'
+              ? await speakWithBrowser(normalizedText, normalizedLanguage, requestId, voice)
+              : await speakWithServer(normalizedText, normalizedLanguage, requestId);
+
+          if (outcome === 'success' || outcome === 'cancelled') return;
         }
 
-        /**
-         * Fallback path: browser SpeechSynthesis.
-         */
-        const browserSpeechStarted = await speakWithBrowser(
-          normalizedText,
-          normalizedLanguage,
-          requestId,
-        );
-
-        if (browserSpeechStarted) {
-          return;
-        }
-
-        /**
-         * Both TTS strategies failed.
-         */
-        if (
-          mountedRef.current &&
-          requestId === requestIdRef.current
-        ) {
+        if (isCurrent(requestId)) {
           setIsSpeaking(false);
 
           toast({
             variant: 'destructive',
             title: 'Text-to-Speech Unavailable',
             description:
-              'Could not generate or play speech for this language. Please try another language or try again.',
+              lastBrowserErrorRef.current ||
+              'No voice is available for this language on your device. Try another language or device.',
           });
         }
       } catch (error: unknown) {
-        /**
-         * Ignore stale requests.
-         */
-        if (
-          !mountedRef.current ||
-          requestId !== requestIdRef.current
-        ) {
-          return;
-        }
+        console.error('[useSpeak] Unexpected error:', error);
 
-        /**
-         * Even if the server action throws, try the browser fallback.
-         */
-        try {
-          const browserSpeechStarted =
-            await speakWithBrowser(
-              normalizedText,
-              normalizedLanguage,
-              requestId,
-            );
-
-          if (browserSpeechStarted) {
-            return;
-          }
-        } catch {
-          // Continue to the final user-facing error.
-        }
-
-        if (mountedRef.current) {
+        if (isCurrent(requestId)) {
           setIsSpeaking(false);
-
-          const message =
-            error instanceof Error && error.message.trim()
-              ? error.message
-              : 'The text-to-speech service failed unexpectedly.';
 
           toast({
             variant: 'destructive',
-            title: 'TTS Error',
-            description: message,
+            title: 'Text-to-Speech Error',
+            description: 'Could not play speech. Please try again.',
           });
         }
       }
     },
-    [
-      playServerAudio,
-      speakWithBrowser,
-      stopAudio,
-      stopBrowserSpeech,
-      toast,
-    ],
+    [isCurrent, speakWithBrowser, speakWithServer, stopAudio, stopBrowserSpeech, toast],
   );
 
-  /**
-   * Load browser voices.
-   *
-   * Some browsers populate getVoices() asynchronously.
-   */
+  /* ------------------------------- Cleanup ------------------------------- */
+
   React.useEffect(() => {
     mountedRef.current = true;
 
-    if (
-      typeof window === 'undefined' ||
-      !window.speechSynthesis
-    ) {
-      return;
-    }
-
-    const synthesis = window.speechSynthesis;
-    speechSynthesisRef.current = synthesis;
-
-    const handleVoicesChanged = () => {
-      voicesRef.current = synthesis.getVoices();
-    };
-
-    handleVoicesChanged();
-
-    synthesis.addEventListener(
-      'voiceschanged',
-      handleVoicesChanged,
-    );
-
-    return () => {
-      synthesis.removeEventListener(
-        'voiceschanged',
-        handleVoicesChanged,
-      );
-    };
-  }, []);
-
-  /**
-   * Global cleanup.
-   */
-  React.useEffect(() => {
     return () => {
       mountedRef.current = false;
       requestIdRef.current += 1;
 
       stopAudio();
 
-      if (
-        typeof window !== 'undefined' &&
-        window.speechSynthesis
-      ) {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
         try {
           window.speechSynthesis.cancel();
         } catch {
           // Ignore cleanup failures.
         }
       }
-
-      speechSynthesisRef.current = null;
     };
   }, [stopAudio]);
 
@@ -740,6 +553,7 @@ const playServerAudio = React.useCallback(
     speak,
     stop,
     isSpeaking,
-    isSupported,
+    // Server TTS keeps the hook usable even when browser speech is absent.
+    isSupported: true,
   };
 };

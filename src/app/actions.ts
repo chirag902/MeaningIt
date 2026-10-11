@@ -11,6 +11,8 @@ import { translateImage } from '@/ai/flows/translate-image-flow';
 import { getChatbotResponse } from '@/ai/flows/chatbot-flow';
 import { textToSpeech } from '@/ai/flows/text-to-speech';
 import { checkRateLimit, getClientIp, type RateLimitBucket } from '@/lib/rate-limit';
+import * as Sentry from '@sentry/nextjs';
+import { cacheKey, cachedJson } from '@/lib/cache';
 
 /* -------------------------------------------------------------------------- */
 /* Configuration                                                              */
@@ -74,7 +76,7 @@ function newRequestId(): string {
 function cleanText(value: string): string {
   return value
     .normalize('NFC')
-    // eslint-disable-next-line no-control-regex
+    
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .trim();
 }
@@ -139,7 +141,7 @@ function logServerActionError(action: string, requestId: string, error: unknown)
     });
     return;
   }
-
+  Sentry.captureException(error, { tags: { action, requestId } });
   console.error(`[${action}]`, { requestId, error: String(error) });
 }
 
@@ -244,57 +246,74 @@ export type HandleTranslationResult =
     }
   | ActionFailure;
 
-export async function handleTranslation(
-  data: TranslateWithSlangInput,
-): Promise<HandleTranslationResult> {
-  const requestId = newRequestId();
-
-  const validation = TranslateSchema.safeParse(data);
-  if (!validation.success) {
-    return invalidInput(requestId, validation.error, 'Invalid translation input.');
+  export async function handleTranslation(
+    data: TranslateWithSlangInput,
+  ): Promise<HandleTranslationResult> {
+    const requestId = newRequestId();
+  
+    const validation = TranslateSchema.safeParse(data);
+    if (!validation.success) {
+      return invalidInput(requestId, validation.error, 'Invalid translation input.');
+    }
+  
+    const validated = validation.data;
+  
+    // Cheap no-op cases come before the rate limiter and the provider call.
+    if (validated.text.length === 0) {
+      return { success: true, translation: '', suggestions: [] };
+    }
+  
+    if (validated.sourceLanguage.toLowerCase() === validated.targetLanguage.toLowerCase()) {
+      return {
+        success: true,
+        translation: validated.text,
+        detectedLanguageName: validated.sourceLanguage,
+        detectedLanguageCode: validated.sourceLanguage,
+        suggestions: [],
+      };
+    }
+  
+    const limited = await enforceRateLimit('translation', requestId);
+    if (limited) return limited;
+  
+    try {
+      const run = (): Promise<TranslateWithSlangOutput> =>
+        withTimeout(
+          translateWithSlang({
+            ...validated,
+            isSpeedBoosted: validated.isSpeedBoosted ?? false,
+          }),
+          TIMEOUT_MS.translation,
+        );
+  
+      // Cache only short texts. Long texts rarely repeat and cost more to store.
+      const out: TranslateWithSlangOutput =
+        validated.text.length <= 1_000
+          ? await cachedJson(
+              cacheKey(
+                'translate',
+                validated.sourceLanguage.toLowerCase(),
+                validated.targetLanguage.toLowerCase(),
+                String(validated.isSpeedBoosted ?? false),
+                validated.text,
+              ),
+              24 * 60 * 60,
+              run,
+            )
+          : await run();
+  
+      return {
+        success: true,
+        translation: out.translation,
+        detectedLanguageName: out.detectedLanguageName,
+        detectedLanguageCode: out.detectedLanguageCode,
+        toneAnalysis: out.toneAnalysis,
+        suggestions: out.suggestions ?? [],
+      };
+    } catch (error: unknown) {
+      return toFailure('handleTranslation', requestId, error, 'Translation failed. Please try again.');
+    }
   }
-
-  const validated = validation.data;
-
-  // Cheap no-op cases come before the rate limiter and the provider call.
-  if (validated.text.length === 0) {
-    return { success: true, translation: '', suggestions: [] };
-  }
-
-  if (validated.sourceLanguage.toLowerCase() === validated.targetLanguage.toLowerCase()) {
-    return {
-      success: true,
-      translation: validated.text,
-      detectedLanguageName: validated.sourceLanguage,
-      detectedLanguageCode: validated.sourceLanguage,
-      suggestions: [],
-    };
-  }
-
-  const limited = await enforceRateLimit('translation', requestId);
-  if (limited) return limited;
-
-  try {
-    const out: TranslateWithSlangOutput = await withTimeout(
-      translateWithSlang({
-        ...validated,
-        isSpeedBoosted: validated.isSpeedBoosted ?? false,
-      }),
-      TIMEOUT_MS.translation,
-    );
-
-    return {
-      success: true,
-      translation: out.translation,
-      detectedLanguageName: out.detectedLanguageName,
-      detectedLanguageCode: out.detectedLanguageCode,
-      toneAnalysis: out.toneAnalysis,
-      suggestions: out.suggestions ?? [],
-    };
-  } catch (error: unknown) {
-    return toFailure('handleTranslation', requestId, error, 'Translation failed. Please try again.');
-  }
-}
 
 /* -------------------------------------------------------------------------- */
 /* Image Translation                                                          */

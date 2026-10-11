@@ -55,3 +55,6 @@ firestore-debug.log
 # IDE/editor configs
 .vscode/
 *.log
+
+# Sentry Config File
+.env.sentry-build-plugin

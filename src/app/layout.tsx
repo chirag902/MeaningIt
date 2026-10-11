@@ -1,89 +1,79 @@
+import type { Metadata, Viewport } from 'next';
+import { Urbanist } from 'next/font/google';
 
-import type { Metadata, Viewport } from "next";
-import { Urbanist } from "next/font/google";
+import './globals.css';
 
-import "./globals.css";
+import { ThemeProvider } from '@/components/theme-provider';
+import { Toaster } from '@/components/ui/toaster';
+import { cn } from '@/lib/utils';
 
-import { ThemeProvider } from "@/components/theme-provider";
-import { Toaster } from "@/components/ui/toaster";
-import { cn } from "@/lib/utils";
-
+// Urbanist is a variable font: omitting `weight` loads one file instead of six.
 const fontSans = Urbanist({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-  weight: ["400", "500", "600", "700", "800", "900"],
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
 });
 
-const APP_NAME = "MeaningIt";
+const APP_NAME = 'MeaningIt';
+const APP_TITLE = 'MeaningIt — AI-Powered Multilingual Translator';
 const APP_DESCRIPTION =
-  "Translate text, voice, live conversations, and images with MeaningIt's intelligent multilingual translation platform.";
+  'Translate text, voice, live conversations and images across many languages, and practice with an AI language tutor.';
+
+/** Public URL of the deployed site. Set NEXT_PUBLIC_SITE_URL in production. */
+function getSiteUrl(): URL {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+  try {
+    return new URL(raw || 'http://localhost:3000');
+  } catch {
+    // A malformed value must not break the build.
+    return new URL('http://localhost:3000');
+  }
+}
 
 export const metadata: Metadata = {
+  metadataBase: getSiteUrl(),
+
   title: {
-    default: "MeaningIt — AI-Powered Multilingual Translator",
-    template: "%s | MeaningIt",
+    default: APP_TITLE,
+    template: `%s | ${APP_NAME}`,
   },
 
-  description:
-    "MeaningIt helps you translate text, voice, live conversations, and images while supporting AI-powered language learning.",
-
+  description: APP_DESCRIPTION,
   applicationName: APP_NAME,
-
   authors: [{ name: APP_NAME }],
   creator: APP_NAME,
   publisher: APP_NAME,
+  category: 'technology',
 
-  category: "technology",
-
-  keywords: [
-    "MeaningIt",
-    "AI translator",
-    "multilingual translator",
-    "language translator",
-    "text translation",
-    "voice translation",
-    "live conversation translator",
-    "image translator",
-    "OCR translation",
-    "AI language learning",
-    "English translator",
-    "Hindi translator",
-  ],
-
-  referrer: "origin-when-cross-origin",
+  alternates: {
+    canonical: '/',
+  },
 
   robots: {
     index: true,
     follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-      "max-video-preview": -1,
-    },
   },
 
   // Keep only assets confirmed to exist in /public.
   icons: {
-    icon: "/favicon.ico",
+    icon: '/favicon.ico',
   },
 
+  // The preview image comes from src/app/opengraph-image.tsx automatically.
   openGraph: {
-    type: "website",
-    locale: "en_US",
+    type: 'website',
+    locale: 'en_US',
     siteName: APP_NAME,
-    title: "MeaningIt — AI-Powered Multilingual Translator",
+    title: APP_TITLE,
     description: APP_DESCRIPTION,
-    // Add an Open Graph image after creating /public/og-image.png.
+    url: '/',
   },
 
   twitter: {
-    card: "summary",
-    title: "MeaningIt — AI-Powered Multilingual Translator",
+    card: 'summary',
+    title: APP_TITLE,
     description: APP_DESCRIPTION,
-    // Change to "summary_large_image" after adding a valid preview image.
   },
 
   formatDetection: {
@@ -94,19 +84,12 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  width: "device-width",
+  width: 'device-width',
   initialScale: 1,
-  viewportFit: "cover",
-  colorScheme: "light dark",
+  colorScheme: 'light dark',
   themeColor: [
-    {
-      media: "(prefers-color-scheme: light)",
-      color: "#ffffff",
-    },
-    {
-      media: "(prefers-color-scheme: dark)",
-      color: "#09090b",
-    },
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
   ],
 };
 
@@ -119,8 +102,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={cn(
-          "min-h-screen bg-background font-sans antialiased",
-          "selection:bg-primary/20 selection:text-foreground",
+          'min-h-dvh bg-background font-sans antialiased',
+          'selection:bg-primary/20 selection:text-foreground',
           fontSans.variable,
         )}
       >

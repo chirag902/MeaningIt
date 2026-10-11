@@ -98,7 +98,7 @@ function isOriginAllowed(request: Request): boolean {
 function sanitizeSourceText(text: string): string {
   return text
     .normalize('NFC')
-    // eslint-disable-next-line no-control-regex
+  
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .replace(/<\/?\s*source_text\s*>/gi, '')
     .trim();
@@ -108,7 +108,7 @@ function sanitizeLanguage(language: string): string {
   return (
     language
       .normalize('NFC')
-      // eslint-disable-next-line no-control-regex
+     
       .replace(/[\u0000-\u001F\u007F]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()

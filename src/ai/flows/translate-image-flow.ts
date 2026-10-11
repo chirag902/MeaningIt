@@ -76,7 +76,7 @@ const TranslateImageInputSchema = z.object({
     .transform((value) =>
       value
         .normalize('NFC')
-        // eslint-disable-next-line no-control-regex
+        
         .replace(/[\u0000-\u001F\u007F]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim(),

@@ -26,7 +26,8 @@
     --secondary-foreground: 222.2 84% 4.9%;
 
     --accent: 174 100% 42%;
-    --accent-foreground: 0 0% 98%;
+    /* Dark text: white on this teal was only ~1.9:1 contrast (WCAG needs 4.5:1). */
+    --accent-foreground: 174 100% 12%;
 
     /* ---------- Supporting surfaces ---------- */
     --muted: 220 14.3% 95.9%;
@@ -51,6 +52,8 @@
     /* ---------- Brand glow ---------- */
     --primary-glow: 248 81% 59%;
     --accent-glow: 174 100% 42%;
+    --glow-primary-alpha: 0.12;
+    --glow-accent-alpha: 0.1;
   }
 
   /* =========================================================
@@ -98,6 +101,8 @@
     /* ---------- Brand glow ---------- */
     --primary-glow: 248 81% 70%;
     --accent-glow: 174 100% 60%;
+    --glow-primary-alpha: 0.18;
+    --glow-accent-alpha: 0.14;
   }
 }
 
@@ -114,52 +119,45 @@
 
   html {
     scroll-behavior: smooth;
-    text-rendering: optimizeLegibility;
     -webkit-text-size-adjust: 100%;
   }
 
   body {
     @apply bg-background text-foreground;
 
-    min-height: 100vh;
-    min-height: 100dvh;
-
     font-synthesis: none;
-    text-rendering: optimizeLegibility;
 
-    /* Premium but extremely subtle global background */
+    /* Makes the background layer below sit predictably behind all content. */
+    isolation: isolate;
+  }
+
+  /*
+   * Brand glow background.
+   *
+   * A fixed pseudo-element is composited by the browser, so scrolling doesn't
+   * repaint it. `background-attachment: fixed` on body repaints on every scroll.
+   */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-image:
       radial-gradient(
         ellipse 80% 70% at 115% -15%,
-        hsl(var(--primary-glow) / 0.12),
+        hsl(var(--primary-glow) / var(--glow-primary-alpha)),
         transparent 60%
       ),
       radial-gradient(
         ellipse 75% 70% at -15% 115%,
-        hsl(var(--accent-glow) / 0.10),
-        transparent 60%
-      );
-
-    background-attachment: fixed;
-  }
-
-  .dark body {
-    background-image:
-      radial-gradient(
-        ellipse 80% 70% at 115% -15%,
-        hsl(var(--primary-glow) / 0.18),
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse 75% 70% at -15% 115%,
-        hsl(var(--accent-glow) / 0.14),
+        hsl(var(--accent-glow) / var(--glow-accent-alpha)),
         transparent 60%
       );
   }
 
-  /* Better text selection */
   ::selection {
-    background: hsl(var(--primary) / 0.20);
+    background: hsl(var(--primary) / 0.2);
     color: hsl(var(--foreground));
   }
 
@@ -172,7 +170,7 @@
   /* Remove default tap highlight on mobile */
   button,
   a,
-  [role="button"] {
+  [role='button'] {
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -185,92 +183,46 @@
     max-width: 100%;
   }
 
-  /* Better form controls */
+  /* Form controls inherit the page font */
   button,
   input,
   textarea,
   select {
     font: inherit;
   }
-
-  /* Improve textarea/input rendering */
-  input,
-  textarea {
-    font-synthesis: none;
-  }
 }
 
 /* =========================================================
    SCROLLBAR
+   (Standard properties only. Chrome 121+ ignores ::-webkit-scrollbar
+   rules once these are set, so a second block would be dead code.)
    ========================================================= */
 
 @layer base {
   * {
     scrollbar-width: thin;
-    scrollbar-color:
-      hsl(var(--muted-foreground) / 0.30)
-      transparent;
-  }
-
-  *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  *::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  *::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.25);
-    border-radius: 999px;
-  }
-
-  *::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.45);
-  }
-
-  .dark *::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.30);
-  }
-
-  .dark *::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.50);
+    scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
   }
 }
 
 /* =========================================================
    REUSABLE MEANINGIT SURFACES
+   (Classes inside @layer are only shipped when used.)
    ========================================================= */
 
 @layer components {
-  /*
-   * Premium glass surface.
-   *
-   * Use for:
-   * - translator panels
-   * - floating controls
-   * - language selectors
-   * - navigation cards
-   */
   .glass {
-    background: hsl(var(--surface-glass) / 0.70);
-    border: 1px solid hsl(var(--border) / 0.70);
+    background: hsl(var(--surface-glass) / 0.7);
+    border: 1px solid hsl(var(--border) / 0.7);
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
   }
 
-  /*
-   * Subtle elevated surface.
-   */
   .surface {
     background: hsl(var(--surface-glass));
     border: 1px solid hsl(var(--border));
   }
 
-  /*
-   * Premium interactive surface.
-   */
   .surface-hover {
     transition:
       background-color 180ms ease,
@@ -284,24 +236,14 @@
     border-color: hsl(var(--primary) / 0.22);
   }
 
-  /*
-   * Brand glow utility.
-   */
   .brand-glow {
     box-shadow:
       0 0 0 1px hsl(var(--primary) / 0.08),
       0 12px 40px hsl(var(--primary) / 0.12);
   }
 
-  /*
-   * Gradient text for major MeaningIt headings.
-   */
   .text-gradient {
-    background: linear-gradient(
-      135deg,
-      hsl(var(--primary)),
-      hsl(var(--accent))
-    );
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -309,31 +251,22 @@
 }
 
 /* =========================================================
-   TRANSLATOR-SPECIFIC UTILITIES
+   UTILITIES
    ========================================================= */
 
 @layer utilities {
-  /*
-   * Prevent long translated words / URLs from breaking layouts.
-   */
+  /* Prevents long translated words or URLs from breaking layouts. */
   .text-balance-safe {
     overflow-wrap: anywhere;
     word-break: break-word;
   }
 
-  /*
-   * Useful for translation text areas.
-   */
   .translation-text {
     overflow-wrap: anywhere;
     word-break: break-word;
     hyphens: auto;
   }
 
-  /*
-   * Hide scrollbar while preserving scrolling.
-   * Useful for horizontal language selectors.
-   */
   .scrollbar-none {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -343,9 +276,6 @@
     display: none;
   }
 
-  /*
-   * Safe-area support for mobile devices.
-   */
   .safe-area-top {
     padding-top: env(safe-area-inset-top);
   }
@@ -361,62 +291,21 @@
 }
 
 /* =========================================================
-   VOICE / AUDIO VISUALIZATION
+   CHEAPER RENDERING
+   Backdrop blur is expensive on budget phones. Phones and users who prefer
+   less transparency get flat translucent surfaces instead.
+   Delete this block if you prefer the blur look on mobile.
    ========================================================= */
 
-@keyframes wave {
-  0%,
-  100% {
-    transform: scaleY(0.5);
-    opacity: 0.65;
+@media (max-width: 640px), (prefers-reduced-transparency: reduce) {
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-xl,
+  .glass {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
   }
-
-  50% {
-    transform: scaleY(1.5);
-    opacity: 1;
-  }
-}
-
-.animate-wave {
-  animation: wave 1.2s ease-in-out infinite;
-  transform-origin: center;
-  will-change: transform, opacity;
-}
-
-/* =========================================================
-   SUBTLE MICRO-INTERACTION
-   ========================================================= */
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 220ms ease-out both;
-}
-
-@keyframes scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-scale-in {
-  animation: scale-in 180ms ease-out both;
 }
 
 /* =========================================================
@@ -439,16 +328,6 @@
 }
 
 /* =========================================================
-   MOBILE OPTIMIZATION
-   ========================================================= */
-
-@media (max-width: 640px) {
-  body {
-    background-attachment: scroll;
-  }
-}
-
-/* =========================================================
    PRINT
    ========================================================= */
 
@@ -456,6 +335,10 @@
   body {
     background: white !important;
     color: black !important;
+  }
+
+  body::before {
+    display: none;
   }
 
   .no-print {

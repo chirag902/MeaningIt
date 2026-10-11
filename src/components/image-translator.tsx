@@ -28,8 +28,7 @@ interface ImageTranslatorProps {
 const MAX_IMAGE_WIDTH = 1600;
 const MAX_IMAGE_HEIGHT = 1600;
 const JPEG_QUALITY = 0.85;
-const MAX_TRANSLATION_TEXT_LENGTH = 8_000;
-const TRANSLATION_TIMEOUT_MS = 20_000;
+
 
 type ProcessingStage =
   | 'idle'
@@ -50,23 +49,7 @@ function getTargetLanguageName(targetLang: string): string {
   );
 }
 
-function cleanExtractedText(text: string): string {
-  return text
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-    .slice(0, MAX_TRANSLATION_TEXT_LENGTH);
-}
 
-function hasMeaningfulText(text: string): boolean {
-  const cleaned = text.trim();
-  if (cleaned.length < 2) return false;
-
-  const meaningfulCharacters = cleaned.match(/[\p{L}\p{N}]/gu);
-  return Boolean(meaningfulCharacters && meaningfulCharacters.length >= 2);
-}
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) {
@@ -75,26 +58,7 @@ function getErrorMessage(error: unknown): string {
   return 'Something went wrong while processing the image.';
 }
 
-function getCanvasDimensions(
-  videoWidth: number,
-  videoHeight: number,
-): { width: number; height: number } {
-  if (videoWidth <= 0 || videoHeight <= 0) {
-    return { width: 0, height: 0 };
-  }
 
-  // Cap at 1 so we only ever downscale.
-  const scale = Math.min(
-    MAX_IMAGE_WIDTH / videoWidth,
-    MAX_IMAGE_HEIGHT / videoHeight,
-    1,
-  );
-
-  return {
-    width: Math.max(1, Math.round(videoWidth * scale)),
-    height: Math.max(1, Math.round(videoHeight * scale)),
-  };
-}
 
 function drawPreprocessedImage(
   video: HTMLVideoElement,
@@ -229,93 +193,7 @@ async function fileToOptimizedDataUri(file: File): Promise<string> {
   }
 }
 
-async function translateTextWithGroq(
-  text: string,
-  targetLanguage: string,
-  signal: AbortSignal,
-): Promise<string> {
-  const cleanedText = cleanExtractedText(text);
 
-  if (!hasMeaningfulText(cleanedText)) {
-    throw new Error('No meaningful text was detected in the image.');
-  }
-
-  if (signal.aborted) {
-    throw new DOMException('Translation was cancelled.', 'AbortError');
-  }
-
-  const controller = new AbortController();
-
-  const timeoutId = setTimeout(() => {
-    controller.abort(
-      new DOMException('Translation timed out.', 'TimeoutError'),
-    );
-  }, TRANSLATION_TIMEOUT_MS);
-
-  const abortFromCaller = () => controller.abort();
-  signal.addEventListener('abort', abortFromCaller, { once: true });
-
-  try {
-    const response = await fetch('/api/groq-translate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: cleanedText, targetLanguage }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      let message = 'Translation service failed.';
-
-      try {
-        const errorBody: unknown = await response.json();
-        if (
-          typeof errorBody === 'object' &&
-          errorBody !== null &&
-          'error' in errorBody &&
-          typeof errorBody.error === 'string'
-        ) {
-          message = errorBody.error;
-        }
-      } catch {
-        // Server may return an empty or non-JSON error body.
-      }
-
-      throw new Error(message);
-    }
-
-    const result: unknown = await response.json();
-
-    if (
-      typeof result !== 'object' ||
-      result === null ||
-      !('translation' in result) ||
-      typeof result.translation !== 'string'
-    ) {
-      throw new Error('Translation service returned an invalid response.');
-    }
-
-    const translation = result.translation.trim();
-
-    if (!translation) {
-      throw new Error('Translation service returned an empty translation.');
-    }
-
-    return translation;
-  } catch (error: unknown) {
-    if (signal.aborted) {
-      throw new DOMException('Translation was cancelled.', 'AbortError');
-    }
-
-    if (controller.signal.aborted) {
-      throw new Error('Translation timed out. Please try again.');
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-    signal.removeEventListener('abort', abortFromCaller);
-  }
-}
 
 function getProcessingMessage(stage: ProcessingStage): string {
   switch (stage) {
@@ -499,6 +377,7 @@ export const ImageTranslator = React.memo(function ImageTranslator({
 
   React.useEffect(() => {
     mountedRef.current = true;
+    const videoElement = videoRef.current;
     void getCameraPermission();
 
     return () => {
@@ -519,10 +398,9 @@ export const ImageTranslator = React.memo(function ImageTranslator({
       }
       streamRef.current = null;
 
-      const video = videoRef.current;
-      if (video) {
-        video.pause();
-        video.srcObject = null;
+      if (videoElement) {
+        videoElement.pause();
+        videoElement.srcObject = null;
       }
     };
   }, [getCameraPermission]);
