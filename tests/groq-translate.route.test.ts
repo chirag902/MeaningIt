@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const create = vi.fn();
+// vi.mock is hoisted above all other code, so anything it uses must be
+// created with vi.hoisted.
+const { create } = vi.hoisted(() => ({ create: vi.fn() }));
 
 vi.mock('@/ai/groq', () => ({
   groq: { chat: { completions: { create } } },
@@ -13,6 +15,7 @@ function makeRequest(body: unknown, init: { raw?: string; contentType?: string }
     method: 'POST',
     headers: {
       'content-type': init.contentType ?? 'application/json',
+      // A unique client per request keeps the rate limiter out of the way.
       'x-forwarded-for': `test-${Math.random()}`,
     },
     body: init.raw ?? JSON.stringify(body),
