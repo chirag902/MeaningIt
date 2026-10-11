@@ -58,3 +58,9 @@ firestore-debug.log
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+keys/
+*.pem
+*-credentials.json
+service-account*.json
+google-vision.json
