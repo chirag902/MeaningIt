@@ -6,7 +6,7 @@
 
 Type it, say it, photograph it, or hold a two-way conversation, all in one place. Then practice the language with an AI tutor that corrects you.
 
-
+[Live link: https://meaning-it.vercel.app/]
 
 <!-- Add after deploying: replace the links above and add a screenshot or GIF -->
 <!-- ![MeaningIt demo](docs/demo.gif) -->
