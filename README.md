@@ -1,4 +1,5 @@
 # MeaningIt
+[![CI](https://github.com/chirag902/MeaningIt/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chirag902/MeaningIt/actions/workflows/ci.yml)
 
 **Translation that doesn't make you pick a mode.**
 
