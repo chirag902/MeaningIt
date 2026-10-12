@@ -150,7 +150,7 @@ const SYSTEM_PROMPT = [
 // Handler
 // -----------------------------------------------------------------------------
 
-export async function POST(request: Request) {
+ async function handlePost(request: Request) {
   const requestId = crypto.randomUUID();
   const requestStartedAt = Date.now();
 
@@ -306,6 +306,7 @@ export async function POST(request: Request) {
 
     return jsonResponse(requestId, { translation }, 200);
   } catch (error: unknown) {
+   
     if (request.signal.aborted) {
       return jsonResponse(requestId, { error: 'Request was cancelled.' }, 408);
     }
@@ -349,5 +350,34 @@ export async function POST(request: Request) {
   } finally {
     clearTimeout(timeoutId);
     request.signal.removeEventListener('abort', abortFromRequest);
+  }
+}
+/**
+ * Outer guard: any error that escapes handlePost becomes a clean JSON
+ * response instead of an unhandled exception.
+ */
+export async function POST(request: Request) {
+  try {
+    return await handlePost(request);
+  } catch (error: unknown) {
+    const requestId = crypto.randomUUID();
+    const status = getErrorStatus(error);
+
+    if (status === 429) {
+      return jsonResponse(
+        requestId,
+        { error: 'The translation service is busy. Please try again shortly.', code: 'PROVIDER_BUSY' },
+        429,
+        { 'Retry-After': '5' },
+      );
+    }
+
+    console.error('[Groq Translate API] Unhandled error', {
+      requestId,
+      status,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+
+    return jsonResponse(requestId, { error: DEFAULT_ERROR }, 502);
   }
 }

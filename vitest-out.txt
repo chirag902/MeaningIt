@@ -1,0 +1,34 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/user/studio[39m
+
+[90mstdout[2m | tests/groq-translate.route.test.ts[2m > [22m[2mPOST /api/groq-translate[2m > [22m[2mpasses provider rate limits through as 429
+[22m[39mDIAG outcome: returned 429
+
+ [31m❯[39m tests/groq-translate.route.test.ts [2m([22m[2m6 tests[22m[2m | [22m[31m1 failed[39m[2m | [22m[33m5 skipped[39m[2m)[22m[32m 34[2mms[22m[39m
+     [2m[90m↓[39m[22m rejects non-JSON content types
+     [2m[90m↓[39m[22m rejects malformed JSON
+     [2m[90m↓[39m[22m rejects missing fields
+     [2m[90m↓[39m[22m returns the translation on success
+     [2m[90m↓[39m[22m maps the unreadable marker to a 422
+[31m     [31m×[31m passes provider rate limits through as 429[39m[32m 30[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/groq-translate.route.test.ts[2m > [22mPOST /api/groq-translate[2m > [22mpasses provider rate limits through as 429
+[31m[1mError[22m: rate limited[39m
+[36m [2m❯[22m tests/groq-translate.route.test.ts:[2m68:41[22m[39m
+    [90m 66|[39m
+    [90m 67|[39m   [34mit[39m([32m'passes provider rate limits through as 429'[39m[33m,[39m [35masync[39m () [33m=>[39m {
+    [90m 68|[39m     const providerError = Object.assign(new Error('rate limited'), { s…
+    [90m   |[39m                                         [31m^[39m
+    [90m 69|[39m     create[33m.[39m[34mmockImplementation[39m([35masync[39m () [33m=>[39m {
+    [90m 70|[39m       [35mthrow[39m providerError[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m5 skipped[39m[90m (6)[39m
+[2m   Start at [22m 09:29:28
+[2m   Duration [22m 875ms[2m (transform 197ms, setup 0ms, import 374ms, tests 34ms, environment 0ms)[22m
+
