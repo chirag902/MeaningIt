@@ -13,4 +13,4 @@ jobs:
         run: |
           curl -fsS --max-time 30 \
             -H "x-health-secret: ${{ secrets.HEALTHCHECK_SECRET }}" \
-            "${{ secrets.APP_URL }}/api/health?deep=1"
+            "${{ secrets.https://meaning-it.vercel.app/ }}/api/health?deep=1"
