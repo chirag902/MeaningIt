@@ -454,7 +454,7 @@ export function Translator() {
   /* -------------------------------- Render ------------------------------- */
 
   return (
-    <Card className="w-full max-w-4xl border-0 bg-card/60 shadow-2xl backdrop-blur-xl">
+    <Card className="mx-auto w-full max-w-4xl border-0 bg-card/60 shadow-2xl backdrop-blur-xl">
       <CardHeader className="border-b p-4">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           {/* Source language */}
