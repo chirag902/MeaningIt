@@ -8,6 +8,8 @@ Type it, say it, photograph it, or hold a two-way conversation, all in one place
 
 [Live link: https://meaning-it.vercel.app/]
 
+![MeaningIt screenshot](docs/MeaningIt.jpeg)
+
 <!-- Add after deploying: replace the links above and add a screenshot or GIF -->
 <!-- ![MeaningIt demo](docs/demo.gif) -->
 
