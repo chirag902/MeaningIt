@@ -534,7 +534,7 @@ export function Translator() {
           <TabsContent value="text" className="p-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {/* Source panel */}
-              <div className="flex flex-col gap-4">
+                <div className="flex min-w-0 flex-col gap-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold">{sourceLanguageName}</p>
@@ -658,13 +658,14 @@ export function Translator() {
 
                 {/* Tone analysis */}
                 {!isSpeedBoosted && toneAnalysis && (
-                  <Card className="border-dashed bg-muted/30 p-3">
+                  
+                  <Card className="overflow-hidden border-dashed bg-muted/30 p-3">
                     <CardContent className="p-0">
                       <div className="flex items-start gap-3">
                         <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
 
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold">Tone Analysis</p>
+                        <p className="break-words text-sm text-muted-foreground">{toneAnalysis}</p>
                           <p className="text-sm text-muted-foreground">{toneAnalysis}</p>
                         </div>
                       </div>
@@ -680,22 +681,20 @@ export function Translator() {
                             <div className="min-w-0">
                               <p className="text-sm font-semibold">Suggestions</p>
 
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {toneSuggestions.map((suggestion, index) => (
-                                  <Button
-                                    type="button"
-                                    key={`${suggestion}-${index}`}
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      setSourceText(suggestion.slice(0, MAX_SOURCE_TEXT_LENGTH))
-                                    }
-                                    className="h-auto bg-background px-2 py-1 text-xs hover:bg-muted"
-                                  >
-                                    {suggestion}
-                                  </Button>
-                                ))}
-                              </div>
+                              <div className="mt-2 flex flex-col items-start gap-2">
+                         {toneSuggestions.map((suggestion, index) => (
+                           <Button
+                      type="button"
+                  key={`${suggestion}-${index}`}
+                      variant="outline"
+      size="sm"
+      onClick={() => setSourceText(suggestion.slice(0, MAX_SOURCE_TEXT_LENGTH))}
+      className="h-auto min-h-8 max-w-full justify-start whitespace-normal break-words bg-background px-3 py-1.5 text-left text-xs leading-snug hover:bg-muted"
+    >
+      {suggestion}
+    </Button>
+  ))}
+</div>
                             </div>
                           </div>
                         </div>
@@ -706,7 +705,7 @@ export function Translator() {
               </div>
 
               {/* Translation panel */}
-              <div className="relative flex flex-col gap-4">
+                <div className="relative flex min-w-0 flex-col gap-4">
                 <div>
                   <p className="text-sm font-semibold">{targetLanguageName}</p>
                   <p className="text-xs text-muted-foreground">Translation</p>
