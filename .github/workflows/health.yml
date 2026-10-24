@@ -10,7 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check app and model availability
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          HEALTHCHECK_SECRET: ${{ secrets.HEALTHCHECK_SECRET }}
         run: |
+          if [ -z "$APP_URL" ] || [ -z "$HEALTHCHECK_SECRET" ]; then
+            echo "::error::Set the APP_URL and HEALTHCHECK_SECRET repository secrets first."
+            exit 1
+          fi
+
           curl -fsS --max-time 30 \
-            -H "x-health-secret: ${{ secrets.HEALTHCHECK_SECRET }}" \
-            "${{ secrets.https://meaning-it.vercel.app/ }}/api/health?deep=1"
+            -H "x-health-secret: $HEALTHCHECK_SECRET" \
+            "$APP_URL/api/health?deep=1"
