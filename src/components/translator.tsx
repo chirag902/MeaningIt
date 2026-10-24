@@ -666,7 +666,7 @@ export function Translator() {
 
                         <div className="min-w-0">
                         <p className="break-words text-sm text-muted-foreground">{toneAnalysis}</p>
-                          <p className="text-sm text-muted-foreground">{toneAnalysis}</p>
+                        
                         </div>
                       </div>
 
