@@ -39,7 +39,7 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@sentry/nextjs": "^11.9.0",
     "@upstash/ratelimit": "^2.2.0",
-    "@upstash/redis": "^1.39.0",
+    "@upstash/redis": "^1.40.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
