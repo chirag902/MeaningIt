@@ -168,8 +168,11 @@ function toFailure(
       requestId,
     };
   }
-
-  if (status === 429 || /rate.?limit|too many requests/i.test(message)) {
+  if (
+    status === 429 ||
+    status === 503 ||
+    /rate.?limit|too many requests/i.test(message)
+  ) {
     return {
       success: false,
       error: 'The service is busy right now. Please try again in a moment.',

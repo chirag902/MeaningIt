@@ -2,6 +2,7 @@
 
 import Groq from 'groq-sdk';
 import { z } from 'zod';
+import { groqBreaker, isProviderOutage } from '@/lib/circuit-breaker';
 
 /**
  * Image Translation Flow (vision-model based)
@@ -124,6 +125,25 @@ function hasImageDataUriPrefix(dataUri: string): boolean {
   );
 }
 
+
+function hasImageSignature(dataUri: string): boolean {
+  const comma = dataUri.indexOf(',');
+  if (comma < 0) return false;
+
+  // 24 base64 characters decode to 18 bytes, enough for every signature below.
+  const head = Buffer.from(dataUri.slice(comma + 1, comma + 25), 'base64');
+  const starts = (...bytes: number[]) => bytes.every((byte, i) => head[i] === byte);
+
+  return (
+    starts(0xff, 0xd8, 0xff) || // JPEG
+    starts(0x89, 0x50, 0x4e, 0x47) || // PNG
+    starts(0x47, 0x49, 0x46, 0x38) || // GIF
+    starts(0x42, 0x4d) || // BMP
+    (starts(0x52, 0x49, 0x46, 0x46) && // WebP: RIFF....WEBP
+      head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50)
+  );
+}
+
 function getStatus(error: unknown): number | undefined {
   if (typeof error === 'object' && error !== null && 'status' in error) {
     const status = (error as { status?: unknown }).status;
@@ -163,7 +183,8 @@ async function translateWithModel(
   photoDataUri: string,
   targetLanguage: string,
 ): Promise<string> {
-  const completion = await groq.chat.completions.create(
+  const completion = await groqBreaker(
+    () => groq.chat.completions.create(
     {
       model,
       messages: [
@@ -183,7 +204,10 @@ async function translateWithModel(
       max_tokens: MAX_OUTPUT_TOKENS,
     },
     { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
-  );
+    
+  ),
+isProviderOutage,
+);
 
   const choice = completion.choices?.[0];
 
@@ -222,6 +246,10 @@ export async function translateImage(input: {
     );
   }
 
+  if (!hasImageSignature(photoDataUri)) {
+    throw new Error('This file is not a valid image. Please use a JPG, PNG, WebP, GIF, or BMP image.');
+  }
+  
   if (photoDataUri.length > MAX_VISION_DATA_URI_LENGTH) {
     throw new Error(
       'This image is too large to analyze. Please use a smaller or lower-resolution image.',

@@ -35,19 +35,18 @@ import { useGamification } from '@/hooks/use-gamification';
 import { useSpeak } from '@/hooks/use-speak';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { VoiceVisualizer } from './voice-visualizer';
+import { useOnlineStatus } from '@/hooks/use-network';
+import { useSlowHint } from '@/hooks/use-network';
 
 /* -------------------------------------------------------------------------- */
 /* Heavy tabs load on first open instead of with the page                     */
 /* -------------------------------------------------------------------------- */
-
 function TabLoading() {
   return (
-    <div
-      className="flex items-center justify-center p-10 text-sm text-muted-foreground"
-      role="status"
-    >
-      <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden="true" />
-      Loading...
+    <div className="space-y-3 p-2" role="status" aria-label="Loading">
+      <div className="h-4 w-1/3 animate-pulse rounded bg-muted" />
+      <div className="h-40 animate-pulse rounded-md bg-muted" />
+      <div className="h-10 w-1/2 animate-pulse rounded bg-muted" />
     </div>
   );
 }
@@ -72,11 +71,13 @@ const GamificationProfile = dynamic(
   { ssr: false, loading: () => <TabLoading /> },
 );
 
+const TAB_TRIGGER_CLASS = 'min-h-10 px-1 text-xs sm:px-3 sm:text-sm';
 /* -------------------------------------------------------------------------- */
 /* Configuration                                                              */
 /* -------------------------------------------------------------------------- */
 
 const MAX_SOURCE_TEXT_LENGTH = 5_000;
+const DRAFT_KEY = 'meaningit:draft';
 // Every pause in typing costs one AI request, so wait a little longer.
 const AUTO_TRANSLATE_DEBOUNCE_MS = 900;
 const RATE_LIMIT_COOLDOWN_MS = 10_000;
@@ -86,6 +87,7 @@ const MAX_SUGGESTIONS = 5;
 function getLanguageName(code: string): string {
   return languages.find((language) => language.code === code)?.name ?? code;
 }
+
 
 /* -------------------------------------------------------------------------- */
 /* Component                                                                  */
@@ -108,6 +110,35 @@ export function Translator() {
   const { toast } = useToast();
   const { logTextTranslation, logImageTranslation, logTutorMessage } = useGamification();
   const { speak, isSpeaking } = useSpeak();
+  const isOnline = useOnlineStatus();
+         const isSlow = useSlowHint(isTranslating);
+
+         // Restore once on mount.
+React.useEffect(() => {
+  try {
+    const saved = window.sessionStorage.getItem(DRAFT_KEY);
+    if (saved) setSourceText(saved.slice(0, MAX_SOURCE_TEXT_LENGTH));
+  } catch {
+    // Storage can be blocked; ignore.
+  }
+}, []);
+
+// Save (debounced). Never saves in Private mode.
+React.useEffect(() => {
+  const timer = setTimeout(() => {
+    try {
+      if (isPrivateMode || !sourceText) {
+        window.sessionStorage.removeItem(DRAFT_KEY);
+      } else {
+        window.sessionStorage.setItem(DRAFT_KEY, sourceText);
+      }
+    } catch {
+      // Ignore.
+    }
+  }, 500);
+
+  return () => clearTimeout(timer);
+}, [sourceText, isPrivateMode])
 
   /* ------------------------------ Refs ----------------------------------- */
 
@@ -288,30 +319,34 @@ export function Translator() {
     [clearTranslationResult, notifyError],
   );
 
-  // Debounced auto-translation.
-  React.useEffect(() => {
-    if (!sourceText.trim()) {
-      requestIdRef.current += 1;
-      lastKeyRef.current = '';
-      clearTranslationResult();
-      setIsTranslating(false);
-      return;
-    }
+// Debounced auto-translation.
+React.useEffect(() => {
+  if (!sourceText.trim()) {
+    requestIdRef.current += 1;
+    lastKeyRef.current = '';
+    clearTranslationResult();
+    setIsTranslating(false);
+    return;
+  }
 
-    const timer = setTimeout(() => {
-      void performTranslation(sourceText);
-    }, AUTO_TRANSLATE_DEBOUNCE_MS);
+  // Don't send translation requests while offline.
+  if (!isOnline) return;
 
-    return () => clearTimeout(timer);
-  }, [
-    sourceText,
-    sourceLang,
-    targetLang,
-    isSpeedBoosted,
-    retryTick,
-    performTranslation,
-    clearTranslationResult,
-  ]);
+  const timer = setTimeout(() => {
+    void performTranslation(sourceText);
+  }, AUTO_TRANSLATE_DEBOUNCE_MS);
+
+  return () => clearTimeout(timer);
+}, [
+  sourceText,
+  sourceLang,
+  targetLang,
+  isSpeedBoosted,
+  retryTick,
+  isOnline, // ADDED
+  performTranslation,
+  clearTranslationResult,
+]);
 
   // Reset when Private Mode changes (skipped on first render).
   React.useEffect(() => {
@@ -522,13 +557,27 @@ export function Translator() {
 
       <CardContent className="p-0">
         <Tabs defaultValue="text" className="w-full">
-          <TabsList className="mx-auto mt-4 grid h-auto w-full max-w-lg grid-cols-5 rounded-xl bg-muted/60 p-1">
-            <TabsTrigger value="text">Text</TabsTrigger>
-            <TabsTrigger value="image">Image</TabsTrigger>
-            <TabsTrigger value="live">Live</TabsTrigger>
-            <TabsTrigger value="tutor">Tutor</TabsTrigger>
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-          </TabsList>
+        <TabsList className="mx-auto mt-4 grid h-auto w-full max-w-lg grid-cols-5 rounded-xl bg-muted/60 p-1">
+  <TabsTrigger value="text" className={TAB_TRIGGER_CLASS}>
+    Text
+  </TabsTrigger>
+
+  <TabsTrigger value="image" className={TAB_TRIGGER_CLASS}>
+    Image
+  </TabsTrigger>
+
+  <TabsTrigger value="live" className={TAB_TRIGGER_CLASS}>
+    Live
+  </TabsTrigger>
+
+  <TabsTrigger value="tutor" className={TAB_TRIGGER_CLASS}>
+    Tutor
+  </TabsTrigger>
+
+  <TabsTrigger value="profile" className={TAB_TRIGGER_CLASS}>
+    Profile
+  </TabsTrigger>
+</TabsList>
 
           {/* ==================== TEXT ==================== */}
           <TabsContent value="text" className="p-6">
@@ -577,6 +626,12 @@ export function Translator() {
                     </div>
                   )}
                 </div>
+
+                {isSlow && (
+  <p className="text-xs text-muted-foreground" role="status">
+    Still working. Your connection may be slow.
+  </p>
+)}
 
                 <div
                   id="translator-source-help"

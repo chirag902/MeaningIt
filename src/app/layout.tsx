@@ -6,6 +6,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
+import { OfflineBanner } from '@/components/offline-banner';
 
 // Urbanist is a variable font: omitting `weight` loads one file instead of six.
 const fontSans = Urbanist({
@@ -114,7 +115,8 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <Toaster />
+             <OfflineBanner />
+            <Toaster />
         </ThemeProvider>
       </body>
     </html>

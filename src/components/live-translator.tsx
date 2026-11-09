@@ -10,6 +10,17 @@ import { languages } from '@/lib/languages';
 import { useSpeak } from '@/hooks/use-speak';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { Card, CardContent } from './ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { VoiceVisualizer } from './voice-visualizer';
 
 interface LiveTranslatorProps {
@@ -178,6 +189,16 @@ export const LiveTranslator = React.memo(function LiveTranslator({
   const translateSpeech = React.useCallback(async (spokenText: string, speaker: Speaker) => {
     const text = spokenText.trim();
     if (!text) return;
+
+    // NEW: Prevent translation requests while offline.
+  if (!navigator.onLine) {
+    toastRef.current({
+      variant: 'destructive',
+      title: "You're offline",
+      description: 'Reconnect and try again.',
+    });
+    return;
+  }
 
     const sourceCode = speaker === 'user1' ? lang1Ref.current : lang2Ref.current;
     const targetCode = speaker === 'user1' ? lang2Ref.current : lang1Ref.current;
@@ -394,16 +415,28 @@ export const LiveTranslator = React.memo(function LiveTranslator({
           </div>
 
           {conversation.length > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={clearConversation}
-              disabled={isProcessing}
-            >
-              Clear
-            </Button>
-          )}
+  <AlertDialog>
+    <AlertDialogTrigger asChild>
+      <Button type="button" variant="ghost" size="sm" disabled={isProcessing}>
+        Clear
+      </Button>
+    </AlertDialogTrigger>
+
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Clear this conversation?</AlertDialogTitle>
+        <AlertDialogDescription>
+          All translated turns on this screen will be removed. This cannot be undone.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+
+      <AlertDialogFooter>
+        <AlertDialogCancel>Keep</AlertDialogCancel>
+        <AlertDialogAction onClick={clearConversation}>Clear</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+)}
         </div>
 
         <div
