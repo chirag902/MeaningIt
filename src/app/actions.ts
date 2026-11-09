@@ -129,7 +129,11 @@ function getStatus(error: unknown): number | undefined {
   return undefined;
 }
 
-function logServerActionError(action: string, requestId: string, error: unknown): void {
+function logServerActionError(
+  action: string,
+  requestId: string,
+  error: unknown,
+): void {
   if (error instanceof Error) {
     // Never log user input (text, images, chat history).
     console.error(`[${action}]`, {
@@ -139,10 +143,20 @@ function logServerActionError(action: string, requestId: string, error: unknown)
       status: getStatus(error),
       stack: error.stack,
     });
-    return;
+  } else {
+    console.error(`[${action}]`, {
+      requestId,
+      error: String(error),
+    });
   }
-  Sentry.captureException(error, { tags: { action, requestId } });
-  console.error(`[${action}]`, { requestId, error: String(error) });
+
+  // Explicitly report caught errors to Sentry.
+  Sentry.captureException(error, {
+    tags: {
+      action,
+      requestId,
+    },
+  });
 }
 
 /**
