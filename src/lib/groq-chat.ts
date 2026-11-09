@@ -1,4 +1,5 @@
 import Groq from 'groq-sdk';
+import { CircuitOpenError, groqBreaker, isProviderOutage } from '@/lib/circuit-breaker';
 
 export type ChatMessage = Groq.Chat.Completions.ChatCompletionMessageParam;
 
@@ -177,18 +178,28 @@ export async function createChatCompletion(options: CompletionOptions) {
     }
 
     try {
-      return await groq.chat.completions.create(
-        {
-          model: options.model,
-          messages: options.messages,
-          temperature: options.temperature,
-          max_tokens: options.maxTokens,
-          ...(options.json ? { response_format: { type: 'json_object' as const } } : {}),
-          ...reasoning,
-        },
-        { signal: AbortSignal.timeout(remaining) },
-      );
+      // replace: return await groq.chat.completions.create(...)
+return await groqBreaker(
+  () =>
+    groq.chat.completions.create(
+      {
+        model: options.model,
+        messages: options.messages,
+        temperature: options.temperature,
+        max_tokens: options.maxTokens,
+        ...(options.json ? { response_format: { type: 'json_object' as const } } : {}),
+        ...reasoning,
+      },
+      { signal: AbortSignal.timeout(remaining) },
+    ),
+  isProviderOutage,
+);
+
+
     } catch (error: unknown) {
+      if (error instanceof CircuitOpenError) {
+        throw new GroqFlowError('The AI service is temporarily unavailable.', 503);
+      }
       if (attempt >= maxAttempts || isAbortOrTimeout(error) || !isRetryable(error)) {
         throw toFlowError(error);
       }

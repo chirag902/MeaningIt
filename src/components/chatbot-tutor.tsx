@@ -239,12 +239,22 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
       const text = rawText.trim();
 
       if (!text || isLoadingRef.current) return;
+      
 
       if (text.length > MAX_MESSAGE_LENGTH) {
         toast({
           variant: 'destructive',
           title: 'Message too long',
           description: `Please keep your message under ${MAX_MESSAGE_LENGTH.toLocaleString()} characters.`,
+        });
+        return;
+      }
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        toast({
+          variant: 'destructive',
+          title: "You're offline",
+          description: 'Reconnect and try again.',
         });
         return;
       }

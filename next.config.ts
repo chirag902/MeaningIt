@@ -8,6 +8,21 @@ const isProd = process.env.NODE_ENV === 'production';
 // Don't set it in production or CI.
 const allowBuildErrors = process.env.ALLOW_BUILD_ERRORS === '1';
 
+const cspReportOnly = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "media-src 'self' blob: data:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.us.sentry.io",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'",
+].join('; ');
+
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -21,6 +36,7 @@ const securityHeaders = [
     ? [
         { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
         { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+        { key: 'Content-Security-Policy-Report-Only', value: cspReportOnly },
       ]
     : []),
 ];

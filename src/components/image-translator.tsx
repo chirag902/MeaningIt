@@ -13,6 +13,7 @@ import { handleImageTranslation } from '@/app/actions';
 
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Textarea } from './ui/textarea';
+import { isOffline, useSlowHint } from '@/hooks/use-network';
 
 
 interface ImageTranslatorProps {
@@ -239,6 +240,7 @@ export const ImageTranslator = React.memo(function ImageTranslator({
   const [processingStage, setProcessingStage] =
     React.useState<ProcessingStage>('idle');
   const [translatedText, setTranslatedText] = React.useState('');
+  const isSlow = useSlowHint(isProcessing);
 
   const { toast } = useToast();
 
@@ -455,6 +457,10 @@ export const ImageTranslator = React.memo(function ImageTranslator({
         !mountedRef.current ||
         requestIdRef.current !== currentRequestId ||
         abortController.signal.aborted;
+
+        if (isOffline()) {
+          throw new Error("You're offline. Reconnect and try again.");
+        }
 
       try {
         const photoDataUri = await buildPhoto();
@@ -677,11 +683,11 @@ export const ImageTranslator = React.memo(function ImageTranslator({
               <p className="mt-4 text-sm font-semibold">{processingMessage}</p>
             )}
 
-            {processingStage === 'ocr' && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                First scan may take a little longer.
-              </p>
-            )}
+                     {isSlow && (
+  <p className="mt-1 text-xs text-muted-foreground">
+    Taking longer than usual. Your connection may be slow.
+  </p>
+)}
           </div>
         )}
       </div>
