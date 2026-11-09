@@ -1,15 +1,19 @@
+
 name: Health check
 
 on:
-permissions:
-  contents: read
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   deep-health:
     runs-on: ubuntu-latest
+    timeout-minutes: 2
+
     steps:
       - name: Check app and model availability
         env:
