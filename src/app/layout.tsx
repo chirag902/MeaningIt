@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Urbanist } from 'next/font/google';
+import { Instrument_Serif } from 'next/font/google';
 
 import './globals.css';
 
@@ -9,11 +9,7 @@ import { cn } from '@/lib/utils';
 import { OfflineBanner } from '@/components/offline-banner';
 
 // Urbanist is a variable font: omitting `weight` loads one file instead of six.
-const fontSans = Urbanist({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  display: 'swap',
-});
+const fontDisplay = Instrument_Serif({ subsets: ['latin'], weight: '400', variable: '--font-display', display: 'swap' });
 
 const APP_NAME = 'MeaningIt';
 const APP_TITLE = 'MeaningIt — AI-Powered Multilingual Translator';
@@ -89,8 +85,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   colorScheme: 'light dark',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#09090b' },
+    { media: '(prefers-color-scheme: light)', color: '#F6F5F0' },
+    { media: '(prefers-color-scheme: dark)', color: '#141A17' },
   ],
 };
 
@@ -105,7 +101,7 @@ export default function RootLayout({
         className={cn(
           'min-h-dvh bg-background font-sans antialiased',
           'selection:bg-primary/20 selection:text-foreground',
-          fontSans.variable,
+          fontDisplay.variable,
         )}
       >
         <ThemeProvider

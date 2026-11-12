@@ -15,22 +15,22 @@ export default function OpenGraphImage() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #0f0a1f 0%, #2e1065 100%)',
+          background: 'linear-gradient(135deg, #141A17, #1C2420)',
           color: 'white',
           fontFamily: 'sans-serif',
         }}
       >
         <div style={{ display: 'flex', fontSize: 132, fontWeight: 800, letterSpacing: -3 }}>
-          Meaning<span style={{ color: '#a78bfa' }}>It</span>
+        Meaning<span style={{ color: '#F08A70' }}>It</span>
         </div>
 
-        <div style={{ display: 'flex', fontSize: 38, marginTop: 20, color: '#ddd6fe' }}>
-          Translate text, voice, conversations and images
-        </div>
+        <div style={{ display: 'flex', fontSize: 38, marginTop: 20, color: '#AAB2AA' }}>
+  Translate text, voice, conversations and images
+</div>
 
-        <div style={{ display: 'flex', fontSize: 28, marginTop: 44, color: '#a78bfa' }}>
-          Hello · Hola · Bonjour · Ciao · Hallo
-        </div>
+<div style={{ display: 'flex', fontSize: 28, marginTop: 44, color: '#F08A70' }}>
+  Hello · Hola · Bonjour · Ciao · Hallo
+</div>
       </div>
     ),
     { ...size },

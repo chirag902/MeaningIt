@@ -10,6 +10,7 @@ import { languages } from '@/lib/languages';
 import { useSpeak } from '@/hooks/use-speak';
 import { useSpeechRecognition } from '@/hooks/use-speech-recognition';
 import { Card, CardContent } from './ui/card';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -80,7 +81,7 @@ const SpeakerPanel = React.memo(function SpeakerPanel({
         {speaker === 'user1' ? (
           <User className="h-6 w-6 text-primary" aria-hidden="true" />
         ) : (
-          <Bot className="h-6 w-6 text-accent" aria-hidden="true" />
+          <Bot className="h-6 w-6 text-live" aria-hidden="true" />
         )}
 
         <span className="text-lg font-semibold">{name}</span>
@@ -91,7 +92,7 @@ const SpeakerPanel = React.memo(function SpeakerPanel({
         onClick={() => onToggle(speaker)}
         disabled={disabled}
         size="lg"
-        className="h-20 w-20 rounded-full"
+        className={cn('h-20 w-20 rounded-full', isActive && 'bg-live text-live-foreground hover:bg-live/90')}
         variant={speaker === 'user1' ? 'default' : 'secondary'}
         aria-label={
           isActive ? `Stop listening for speaker ${number}` : `Start listening for speaker ${number}`
@@ -115,7 +116,7 @@ interface TurnCardProps {
 
 const TurnCard = React.memo(function TurnCard({ turn, onPlay }: TurnCardProps) {
   return (
-    <Card className={turn.speaker === 'user1' ? 'bg-primary/10' : 'bg-accent/10'}>
+    <Card className={turn.speaker === 'user1' ? 'bg-primary/10' : 'bg-live/10'}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">

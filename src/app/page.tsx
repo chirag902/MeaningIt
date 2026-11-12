@@ -1,4 +1,4 @@
-import { IntroSplash } from '@/components/intro-splash';
+
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Translator } from '@/components/translator';
 
@@ -22,12 +22,12 @@ export default function Home() {
         className="flex w-full max-w-7xl flex-1 flex-col items-center justify-center py-8 sm:py-12 lg:py-16"
       >
         <div className="mb-8 w-full text-center sm:mb-10">
-          <h1
-            id="meaningit-title"
-            className="font-display text-4xl font-black tracking-tight text-primary sm:text-5xl lg:text-6xl"
-          >
-            MeaningIt
-          </h1>
+        <h1
+  id="meaningit-title"
+  className="font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl lg:text-6xl"
+>
+  Meaning<span className="text-primary">It</span>
+</h1>
 
           <p className="mx-auto mt-3 max-w-2xl text-base leading-7 text-muted-foreground sm:mt-4 sm:text-lg">
             Instant, intelligent, and natural translations across text, voice,
@@ -40,7 +40,7 @@ export default function Home() {
         </div>
       </section>
 
-      <IntroSplash />
+      
     </main>
   );
 }

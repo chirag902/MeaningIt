@@ -21,6 +21,7 @@ export const DEFAULT_LANGUAGE_CODE = "en-US" as const;
 export type Language = {
   readonly name: string;
   readonly code: string;
+  readonly nativeName?: string;
 };
 
 /**
@@ -32,7 +33,7 @@ export type Language = {
  * `auto` is reserved for source-language detection and should not normally
  * be used as a target language.
  */
-export const languages = [
+export const languages: readonly Language[] = [
   { name: "Auto-detect", code: "auto" },
   { name: "Afrikaans", code: "af-ZA" },
   { name: "Albanian", code: "sq-AL" },
@@ -42,7 +43,7 @@ export const languages = [
   { name: "Azerbaijani", code: "az-AZ" },
   { name: "Basque", code: "eu-ES" },
   { name: "Belarusian", code: "be-BY" },
-  { name: "Bengali", code: "bn-BD" },
+  { name: "Bengali", code: "bn-BD", nativeName: "বাংলা" },
   { name: "Bosnian", code: "bs-BA" },
   { name: "Bulgarian", code: "bg-BG" },
   { name: "Catalan", code: "ca-ES" },
@@ -64,12 +65,12 @@ export const languages = [
   { name: "Georgian", code: "ka-GE" },
   { name: "German", code: "de-DE" },
   { name: "Greek", code: "el-GR" },
-  { name: "Gujarati", code: "gu-IN" },
+  { name: "Gujarati", code: "gu-IN", nativeName: "ગુજરાતી" },
   { name: "Haitian Creole", code: "ht-HT" },
   { name: "Hausa", code: "ha-NG" },
   { name: "Hawaiian", code: "haw-US" },
   { name: "Hebrew", code: "he-IL" },
-  { name: "Hindi", code: "hi-IN" },
+  { name: "Hindi", code: "hi-IN", nativeName: "हिन्दी" },
   { name: "Hmong", code: "hmn-CN" },
   { name: "Hungarian", code: "hu-HU" },
   { name: "Icelandic", code: "is-IS" },
@@ -79,7 +80,7 @@ export const languages = [
   { name: "Italian", code: "it-IT" },
   { name: "Japanese", code: "ja-JP" },
   { name: "Javanese", code: "jv-ID" },
-  { name: "Kannada", code: "kn-IN" },
+  { name: "Kannada", code: "kn-IN", nativeName: "ಕನ್ನಡ" },
   { name: "Kazakh", code: "kk-KZ" },
   { name: "Khmer", code: "km-KH" },
   { name: "Kinyarwanda", code: "rw-RW" },
@@ -94,21 +95,21 @@ export const languages = [
   { name: "Macedonian", code: "mk-MK" },
   { name: "Malagasy", code: "mg-MG" },
   { name: "Malay", code: "ms-MY" },
-  { name: "Malayalam", code: "ml-IN" },
+  { name: "Malayalam", code: "ml-IN", nativeName: "മലയാളം" },
   { name: "Maltese", code: "mt-MT" },
   { name: "Maori", code: "mi-NZ" },
-  { name: "Marathi", code: "mr-IN" },
+  { name: "Marathi", code: "mr-IN", nativeName: "मराठी" },
   { name: "Mongolian", code: "mn-MN" },
   { name: "Myanmar (Burmese)", code: "my-MM" },
   { name: "Nepali", code: "ne-NP" },
   { name: "Norwegian", code: "no-NO" },
   { name: "Nyanja (Chichewa)", code: "ny-MW" },
-  { name: "Odia (Oriya)", code: "or-IN" },
+  { name: "Odia (Oriya)", code: "or-IN", nativeName: "ଓଡ଼ିଆ" },
   { name: "Pashto", code: "ps-AF" },
   { name: "Persian", code: "fa-IR" },
   { name: "Polish", code: "pl-PL" },
   { name: "Portuguese", code: "pt-PT" },
-  { name: "Punjabi", code: "pa-IN" },
+  { name: "Punjabi", code: "pa-IN", nativeName: "ਪੰਜਾਬੀ" },
   { name: "Romanian", code: "ro-RO" },
   { name: "Russian", code: "ru-RU" },
   { name: "Samoan", code: "sm-WS" },
@@ -116,7 +117,7 @@ export const languages = [
   { name: "Serbian", code: "sr-RS" },
   { name: "Sesotho", code: "st-LS" },
   { name: "Shona", code: "sn-ZW" },
-  { name: "Sindhi", code: "sd-PK" },
+  { name: "Sindhi", code: "sd-PK", nativeName: "سنڌي" },
   { name: "Sinhala (Sinhalese)", code: "si-LK" },
   { name: "Slovak", code: "sk-SK" },
   { name: "Slovenian", code: "sl-SI" },
@@ -127,14 +128,14 @@ export const languages = [
   { name: "Swedish", code: "sv-SE" },
   { name: "Tagalog (Filipino)", code: "tl-PH" },
   { name: "Tajik", code: "tg-TJ" },
-  { name: "Tamil", code: "ta-IN" },
+  { name: "Tamil", code: "ta-IN", nativeName: "தமிழ்" },
   { name: "Tatar", code: "tt-RU" },
-  { name: "Telugu", code: "te-IN" },
+  { name: "Telugu", code: "te-IN", nativeName: "తెలుగు" },
   { name: "Thai", code: "th-TH" },
   { name: "Turkish", code: "tr-TR" },
   { name: "Turkmen", code: "tk-TM" },
   { name: "Ukrainian", code: "uk-UA" },
-  { name: "Urdu", code: "ur-PK" },
+  { name: "Urdu", code: "ur-PK", nativeName: "اردو" },
   { name: "Uyghur", code: "ug-CN" },
   { name: "Uzbek", code: "uz-UZ" },
   { name: "Vietnamese", code: "vi-VN" },
