@@ -70,14 +70,15 @@ const GamificationProfile = dynamic(
   () => import('./gamification-profile').then((m) => m.GamificationProfile),
   { ssr: false, loading: () => <TabLoading /> },
 );
-
-const TAB_TRIGGER_CLASS = 'min-h-10 px-1 text-xs sm:px-3 sm:text-sm';
+const TAB_TRIGGER_CLASS =
+  'min-h-11 rounded-none border-b-2 border-transparent px-1 text-xs font-medium text-muted-foreground shadow-none transition-colors data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none sm:px-3 sm:text-sm';
 /* -------------------------------------------------------------------------- */
 /* Configuration                                                              */
 /* -------------------------------------------------------------------------- */
 
 const MAX_SOURCE_TEXT_LENGTH = 5_000;
 const DRAFT_KEY = 'meaningit:draft';
+const PAIR_KEY = 'meaningit:pair';
 // Every pause in typing costs one AI request, so wait a little longer.
 const AUTO_TRANSLATE_DEBOUNCE_MS = 900;
 const RATE_LIMIT_COOLDOWN_MS = 10_000;
@@ -88,6 +89,13 @@ function getLanguageName(code: string): string {
   return languages.find((language) => language.code === code)?.name ?? code;
 }
 
+const findLang = (base: string) =>
+  languages.find(
+    (language) =>
+      language.code.toLowerCase().split('-')[0] === base &&
+      language.code !== 'auto',
+  );
+
 
 /* -------------------------------------------------------------------------- */
 /* Component                                                                  */
@@ -96,6 +104,7 @@ function getLanguageName(code: string): string {
 export function Translator() {
   const [sourceLang, setSourceLang] = React.useState('auto');
   const [targetLang, setTargetLang] = React.useState('es-ES');
+  const [pairReady, setPairReady] = React.useState(false);
   const [sourceText, setSourceText] = React.useState('');
   const [translatedText, setTranslatedText] = React.useState('');
   const [detectedLangName, setDetectedLangName] = React.useState<string | null>(null);
@@ -113,7 +122,54 @@ export function Translator() {
   const isOnline = useOnlineStatus();
          const isSlow = useSlowHint(isTranslating);
 
-         // Restore once on mount.
+  // Restore the last language pair, or choose sensible browser-locale defaults.
+  React.useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(PAIR_KEY);
+      if (saved) {
+        const { s, t } = JSON.parse(saved) as { s?: string; t?: string };
+        if (s && languages.some((language) => language.code === s)) {
+          setSourceLang(s);
+        }
+        if (t && t !== 'auto' && languages.some((language) => language.code === t)) {
+          setTargetLang(t);
+        }
+        setPairReady(true);
+        return;
+      }
+    } catch {
+      // Storage blocked or invalid; fall through to locale defaults.
+    }
+
+    const base = (navigator.language || 'en').toLowerCase().split('-')[0];
+    const own = findLang(base);
+
+    if (base === 'en') {
+      const hindi = findLang('hi');
+      if (hindi) setTargetLang(hindi.code);
+    } else if (own) {
+      setSourceLang(own.code);
+      const english = findLang('en');
+      if (english) setTargetLang(english.code);
+    }
+
+    setPairReady(true);
+  }, []);
+
+  // Save the selected pair only after restoration and never in Private mode.
+  React.useEffect(() => {
+    if (!pairReady || isPrivateMode) return;
+    try {
+      window.localStorage.setItem(
+        PAIR_KEY,
+        JSON.stringify({ s: sourceLang, t: targetLang }),
+      );
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [pairReady, sourceLang, targetLang, isPrivateMode]);
+
+  // Restore once on mount.
 React.useEffect(() => {
   try {
     const saved = window.sessionStorage.getItem(DRAFT_KEY);
@@ -489,7 +545,7 @@ React.useEffect(() => {
   /* -------------------------------- Render ------------------------------- */
 
   return (
-    <Card className="mx-auto w-full max-w-4xl border-0 bg-card/60 shadow-2xl backdrop-blur-xl">
+    <Card className="mx-auto w-full max-w-4xl rounded-2xl border bg-card shadow-card">
       <CardHeader className="border-b p-4">
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           {/* Source language */}
@@ -510,7 +566,9 @@ React.useEffect(() => {
             <SelectContent>
               {languages.map((language) => (
                 <SelectItem key={language.code} value={language.code}>
-                  {language.name}
+                  {language.nativeName
+  ? `${language.name} · ${language.nativeName}`
+  : language.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -556,8 +614,8 @@ React.useEffect(() => {
       </CardHeader>
 
       <CardContent className="p-0">
-        <Tabs defaultValue="text" className="w-full">
-        <TabsList className="mx-auto mt-4 grid h-auto w-full max-w-lg grid-cols-5 rounded-xl bg-muted/60 p-1">
+        <Tabs defaultValue="text" className="w-full pb-24 md:pb-0">
+        <TabsList className="fixed inset-x-0 bottom-0 z-50 mx-0 mt-0 grid h-auto w-full max-w-none grid-cols-5 rounded-none border-t border-b-0 bg-card p-0 pb-[env(safe-area-inset-bottom)] shadow-sm md:static md:mx-auto md:mt-4 md:w-full md:max-w-lg md:border-b md:border-t-0 md:bg-transparent md:pb-0 md:shadow-none">
   <TabsTrigger value="text" className={TAB_TRIGGER_CLASS}>
     Text
   </TabsTrigger>
@@ -770,7 +828,7 @@ React.useEffect(() => {
                   placeholder="Translation"
                   value={translatedText}
                   readOnly
-                  className="h-48 resize-none bg-muted/50 text-base"
+                 className="h-48 resize-none bg-muted/50 text-lg leading-relaxed"
                   aria-label="Translated text"
                 />
 

@@ -621,7 +621,7 @@ export const ImageTranslator = React.memo(function ImageTranslator({
         <Info className="h-4 w-4 text-primary" />
         <AlertTitle>Get Better Image Translations</AlertTitle>
         <AlertDescription className="text-xs leading-relaxed">
-        Place the text inside the dashed box and hold the camera steady. Dark text on a plain, light background works best. Hold steady in good light and avoid glare.
+        Place the text inside the viewfinder corners and hold the camera steady. Dark text on a plain, light background works best. Hold steady in good light and avoid glare.
         </AlertDescription>
       </Alert>
 
@@ -636,10 +636,24 @@ export const ImageTranslator = React.memo(function ImageTranslator({
           onLoadedMetadata={handleVideoReady}
           onCanPlay={handleVideoReady}
         />
-         <div
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[60%] w-[92%] -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-dashed border-primary/70"
-        />
+         
+<div
+  aria-hidden="true"
+  className="pointer-events-none absolute left-1/2 top-1/2 h-[60%] w-[92%] -translate-x-1/2 -translate-y-1/2"
+>
+  {/* Top-left */}
+  <span className="absolute left-0 top-0 h-7 w-7 rounded-tl-lg border-l-2 border-t-2 border-primary" />
+
+  {/* Top-right */}
+  <span className="absolute right-0 top-0 h-7 w-7 rounded-tr-lg border-r-2 border-t-2 border-primary" />
+
+  {/* Bottom-left */}
+  <span className="absolute bottom-0 left-0 h-7 w-7 rounded-bl-lg border-b-2 border-l-2 border-primary" />
+
+  {/* Bottom-right */}
+  <span className="absolute bottom-0 right-0 h-7 w-7 rounded-br-lg border-b-2 border-r-2 border-primary" />
+</div>
+
 
         {!isCameraReady && hasCameraPermission === true && !isProcessing && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm">
@@ -750,7 +764,7 @@ export const ImageTranslator = React.memo(function ImageTranslator({
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <CheckCircle2
-                className="h-4 w-4 text-primary"
+                className="h-4 w-4 text-live"
                 aria-hidden="true"
               />
               <h3 className="font-semibold">Translated Text</h3>

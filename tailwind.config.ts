@@ -27,7 +27,7 @@ const config: Config = {
       /* Typography */
       fontFamily: {
         sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        display: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'ui-serif', 'Georgia', 'serif'],
         code: [
           'ui-monospace',
           'SFMono-Regular',
@@ -48,6 +48,11 @@ const config: Config = {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
+        },
+
+        live: {
+          DEFAULT: 'hsl(var(--live))',
+          foreground: 'hsl(var(--live-foreground))',
         },
 
         popover: {
@@ -92,12 +97,11 @@ const config: Config = {
       },
 
       boxShadow: {
-        soft: '0 2px 12px hsl(var(--foreground) / 0.05)',
-        card: '0 8px 30px hsl(var(--foreground) / 0.08)',
-        elevated: '0 16px 40px hsl(var(--foreground) / 0.10)',
-        glow: '0 0 30px hsl(var(--primary) / 0.20)',
+        soft: '0 2px 12px hsl(var(--shadow) / 0.06)',
+        card: '0 8px 30px hsl(var(--shadow) / 0.10)',
+        elevated: '0 16px 40px hsl(var(--shadow) / 0.14)',
       },
-
+      
       keyframes: {
         'accordion-down': {
           from: { height: '0' },

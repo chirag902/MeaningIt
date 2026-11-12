@@ -98,6 +98,14 @@ function getLanguageName(code: string): string {
   return languages.find((language) => language.code === code)?.name ?? code;
 }
 
+function getLanguageDisplayName(code: string): string {
+  const language = languages.find((item) => item.code === code);
+  if (!language) return code;
+  return language.nativeName
+    ? `${language.name} · ${language.nativeName}`
+    : language.name;
+}
+
 /** Trims history to what the server accepts. Assistant replies can exceed 1,500 characters. */
 function buildHistory(turns: ConversationTurn[]) {
   return turns
@@ -220,6 +228,10 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
   }, [targetLang, isPrivate, onMessageSent]);
 
   const targetLanguageName = React.useMemo(() => getLanguageName(targetLang), [targetLang]);
+  const targetLanguageDisplayName = React.useMemo(
+    () => getLanguageDisplayName(targetLang),
+    [targetLang],
+  );
 
   const nextId = React.useCallback(() => {
     idCounterRef.current += 1;
@@ -363,11 +375,11 @@ export const ChatbotTutor = React.memo(function ChatbotTutor({
         role: 'assistant',
         isLocal: true,
         content: isPrivate
-          ? `Private session started in ${targetLanguageName}. History will not be saved.`
-          : `Hi! I'm Kai, your ${targetLanguageName} tutor. Write or say something in ${targetLanguageName} and I'll help you practice.`,
+          ? `Private session started in ${targetLanguageDisplayName}. History will not be saved.`
+          : `Hi! I'm Kai, your ${targetLanguageDisplayName} tutor. Say it in your language, and I'll help you practice.`,
       },
     ]);
-  }, [isPrivate, targetLanguageName, commitConversation, nextId]);
+  }, [isPrivate, targetLanguageName, targetLanguageDisplayName, commitConversation, nextId]);
 
   /* ------------------------------ Auto-scroll --------------------------- */
 
